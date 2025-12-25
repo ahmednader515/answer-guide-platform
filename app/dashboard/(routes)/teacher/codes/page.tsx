@@ -1,0 +1,772 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Search, Plus, Copy, Check, Trash2, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
+import { useLanguage } from "@/lib/contexts/language-context";
+
+interface Course {
+  id: string;
+  title: string;
+  isPublished: boolean;
+}
+
+interface PurchaseCode {
+  id: string;
+  code: string;
+  courseId: string;
+  isUsed: boolean;
+  isHidden: boolean;
+  usedAt: string | null;
+  createdAt: string;
+  course: {
+    id: string;
+    title: string;
+  };
+  user: {
+    id: string;
+    fullName: string;
+    phoneNumber: string;
+  } | null;
+}
+
+const TeacherCodesPage = () => {
+  const { t } = useLanguage();
+  const [codes, setCodes] = useState<PurchaseCode[]>([]);
+  const [hiddenCodes, setHiddenCodes] = useState<PurchaseCode[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [courseFilter, setCourseFilter] = useState<string>("all");
+  const [selectedCourse, setSelectedCourse] = useState<string>("");
+  const [codeCount, setCodeCount] = useState<string>("1");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
+  const [isHiddenTableOpen, setIsHiddenTableOpen] = useState(false);
+  const [deleteAction, setDeleteAction] = useState<"delete" | "hide">("hide");
+  const [deleteCourseId, setDeleteCourseId] = useState<string>("");
+
+  useEffect(() => {
+    fetchCodes();
+    fetchCourses();
+  }, []);
+
+  const fetchCodes = async () => {
+    try {
+      const [visibleResponse, hiddenResponse] = await Promise.all([
+        fetch("/api/teacher/codes?includeHidden=false"),
+        fetch("/api/teacher/codes?includeHidden=true"),
+      ]);
+
+      if (visibleResponse.ok) {
+        const visibleData = await visibleResponse.json();
+        // Filter out hidden codes and used codes (used codes are automatically hidden)
+        setCodes(visibleData.filter((code: PurchaseCode) => !code.isHidden && !code.isUsed));
+      }
+
+      if (hiddenResponse.ok) {
+        const hiddenData = await hiddenResponse.json();
+        // Show all hidden codes (including used codes that are automatically hidden)
+        setHiddenCodes(hiddenData.filter((code: PurchaseCode) => code.isHidden));
+      }
+    } catch (error) {
+      console.error("Error fetching codes:", error);
+      toast.error(t("teacher.codes.errors.loadError"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCourses = async () => {
+    try {
+      const response = await fetch("/api/courses");
+      if (response.ok) {
+        const data = await response.json();
+        const publishedCourses = data.filter((course: Course) => course.isPublished);
+        setCourses(publishedCourses);
+      }
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+    }
+  };
+
+  const handleGenerateCodes = async () => {
+    if (!selectedCourse || !codeCount || parseInt(codeCount) < 1 || parseInt(codeCount) > 100) {
+      toast.error(t("teacher.codes.errors.selectCourseCount"));
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const response = await fetch("/api/teacher/codes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          courseId: selectedCourse,
+          count: parseInt(codeCount),
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(t("teacher.codes.errors.generateSuccess", { count: data.count }));
+        setIsDialogOpen(false);
+        setSelectedCourse("");
+        setCodeCount("1");
+        fetchCodes();
+      } else {
+        const error = await response.text();
+        toast.error(error || t("teacher.codes.errors.generateError"));
+      }
+    } catch (error) {
+      console.error("Error generating codes:", error);
+      toast.error(t("teacher.codes.errors.generateError"));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCopyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      toast.success(t("teacher.codes.errors.copySuccess"));
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch (error) {
+      toast.error(t("teacher.codes.errors.copyError"));
+    }
+  };
+
+  const handleCopyAllCodes = async () => {
+    if (!deleteCourseId) {
+      toast.error(t("teacher.codes.copy.selectCourse"));
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/teacher/codes/copy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ courseId: deleteCourseId }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        await navigator.clipboard.writeText(data.codes);
+        toast.success(t("teacher.codes.copy.success", { count: data.count }));
+        setIsCopyDialogOpen(false);
+        setDeleteCourseId("");
+      } else {
+        const error = await response.text();
+        toast.error(error || t("teacher.codes.errors.copyAllError"));
+      }
+    } catch (error) {
+      console.error("Error copying codes:", error);
+      toast.error(t("teacher.codes.errors.copyAllError"));
+    }
+  };
+
+  const handleDeleteCodes = async () => {
+    if (!deleteCourseId && selectedCodes.size === 0) {
+      toast.error(t("teacher.codes.delete.description"));
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/teacher/codes/bulk", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          courseId: deleteCourseId || undefined,
+          codeIds: selectedCodes.size > 0 ? Array.from(selectedCodes) : undefined,
+          action: deleteAction,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (deleteAction === "delete") {
+          toast.success(t("teacher.codes.hidden.deleteSuccess", { count: data.deleted || data.hidden }));
+        } else {
+          toast.success(t("teacher.codes.delete.hideSuccess", { count: data.hidden }));
+        }
+        setIsDeleteDialogOpen(false);
+        setDeleteCourseId("");
+        setDeleteAction("hide");
+        setSelectedCodes(new Set());
+        fetchCodes();
+      } else {
+        const error = await response.text();
+        toast.error(error || t("teacher.codes.errors.deleteError"));
+      }
+    } catch (error) {
+      console.error("Error deleting codes:", error);
+      toast.error(t("teacher.codes.errors.deleteError"));
+    }
+  };
+
+  const handleRestoreCodes = async (codeIds: string[]) => {
+    try {
+      const response = await fetch("/api/teacher/codes/bulk", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ codeIds }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(t("teacher.codes.hidden.restoreSuccess", { count: data.restored }));
+        fetchCodes();
+      } else {
+        const error = await response.text();
+        toast.error(error || t("teacher.codes.errors.restoreError"));
+      }
+    } catch (error) {
+      console.error("Error restoring codes:", error);
+      toast.error(t("teacher.codes.errors.restoreError"));
+    }
+  };
+
+  const handlePermanentDelete = async (codeIds: string[]) => {
+    try {
+      const response = await fetch("/api/teacher/codes/bulk", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          codeIds,
+          action: "delete",
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(t("teacher.codes.hidden.deleteSuccess", { count: data.deleted }));
+        fetchCodes();
+      } else {
+        const error = await response.text();
+        toast.error(error || t("teacher.codes.errors.deleteError"));
+      }
+    } catch (error) {
+      console.error("Error deleting codes:", error);
+      toast.error(t("teacher.codes.errors.deleteError"));
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedCodes.size === filteredCodes.length) {
+      setSelectedCodes(new Set());
+    } else {
+      setSelectedCodes(new Set(filteredCodes.map((code) => code.id)));
+    }
+  };
+
+  const toggleSelectCode = (codeId: string) => {
+    const newSelected = new Set(selectedCodes);
+    if (newSelected.has(codeId)) {
+      newSelected.delete(codeId);
+    } else {
+      newSelected.add(codeId);
+    }
+    setSelectedCodes(newSelected);
+  };
+
+  const filteredCodes = codes.filter((code) => {
+    const matchesSearch =
+      code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      code.course.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCourse = courseFilter === "all" || code.courseId === courseFilter;
+    return matchesSearch && matchesCourse;
+  });
+
+  const filteredHiddenCodes = hiddenCodes.filter((code) => {
+    const matchesSearch =
+      code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      code.course.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCourse = courseFilter === "all" || code.courseId === courseFilter;
+    return matchesSearch && matchesCourse;
+  });
+
+  const usedCodes = filteredCodes.filter((code) => code.isUsed);
+  const unusedCodes = filteredCodes.filter((code) => !code.isUsed);
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="text-center">{t("common.loading")}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t("teacher.codes.title")}</h1>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setIsCopyDialogOpen(true)}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Copy className="h-4 w-4" />
+            {t("teacher.codes.copy.button")}
+          </Button>
+          <Button
+            onClick={() => setIsDeleteDialogOpen(true)}
+            variant="outline"
+            className="flex items-center gap-2 text-red-600 hover:text-red-700"
+          >
+            <Trash2 className="h-4 w-4" />
+            {t("teacher.codes.delete.button")}
+          </Button>
+          <Button onClick={() => setIsDialogOpen(true)} className="bg-brand hover:bg-brand/90">
+            <Plus className="h-4 w-4 ml-2" />
+            {t("teacher.codes.createNew")}
+          </Button>
+        </div>
+      </div>
+
+      {/* Search and Filter */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex items-center space-x-2 flex-1">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={t("teacher.codes.searchPlaceholder")}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="course-filter" className="whitespace-nowrap">{t("teacher.codes.filterByCourse")}</Label>
+              <Select value={courseFilter} onValueChange={setCourseFilter}>
+                <SelectTrigger id="course-filter" className="w-[250px]">
+                  <SelectValue placeholder={t("teacher.codes.allCourses")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("teacher.codes.allCourses")}</SelectItem>
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">{t("teacher.codes.stats.total")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredCodes.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">{t("teacher.codes.stats.unused")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{unusedCodes.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">{t("teacher.codes.stats.used")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-600">{usedCodes.length}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Codes Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("teacher.codes.table.code")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {filteredCodes.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {t("teacher.codes.empty")}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedCodes.size === filteredCodes.length && filteredCodes.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.code")}</TableHead>
+                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.course")}</TableHead>
+                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.status")}</TableHead>
+                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.user")}</TableHead>
+                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.usedAt")}</TableHead>
+                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.createdAt")}</TableHead>
+                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.actions")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCodes.map((code) => (
+                  <TableRow key={code.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedCodes.has(code.id)}
+                        onCheckedChange={() => toggleSelectCode(code.id)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <code className="font-mono text-sm bg-muted px-2 py-1 rounded">
+                          {code.code}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopyCode(code.code)}
+                          className="h-6 w-6 p-0"
+                        >
+                          {copiedCode === code.code ? (
+                            <Check className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell>{code.course.title}</TableCell>
+                    <TableCell>
+                      <Badge variant={code.isUsed ? "secondary" : "default"}>
+                        {code.isUsed ? t("teacher.codes.status.used") : t("teacher.codes.status.unused")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {code.user ? (
+                        <div>
+                          <div className="font-medium">{code.user.fullName}</div>
+                          <div className="text-sm text-muted-foreground">{code.user.phoneNumber}</div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {code.usedAt
+                        ? format(new Date(code.usedAt), "yyyy-MM-dd HH:mm", { locale: ar })
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {format(new Date(code.createdAt), "yyyy-MM-dd HH:mm", { locale: ar })}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopyCode(code.code)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Hidden Codes Table */}
+      {hiddenCodes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>{t("teacher.codes.hidden.title")} ({filteredHiddenCodes.length})</CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsHiddenTableOpen(!isHiddenTableOpen)}
+                className="flex items-center gap-2"
+              >
+                {isHiddenTableOpen ? (
+                  <>
+                    <ChevronUp className="h-4 w-4" />
+                    {t("teacher.codes.hidden.hide")}
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4" />
+                    {t("teacher.codes.hidden.show")}
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          {isHiddenTableOpen && (
+            <CardContent>
+              {filteredHiddenCodes.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {t("teacher.codes.hidden.empty")}
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.code")}</TableHead>
+                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.course")}</TableHead>
+                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.status")}</TableHead>
+                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.user")}</TableHead>
+                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.createdAt")}</TableHead>
+                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.actions")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredHiddenCodes.map((code) => (
+                      <TableRow key={code.id}>
+                        <TableCell>
+                          <code className="font-mono text-sm bg-muted px-2 py-1 rounded">
+                            {code.code}
+                          </code>
+                        </TableCell>
+                        <TableCell>{code.course.title}</TableCell>
+                        <TableCell>
+                          <Badge variant={code.isUsed ? "secondary" : "default"}>
+                            {code.isUsed ? t("teacher.codes.status.used") : t("teacher.codes.status.unused")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {code.user ? (
+                            <div>
+                              <div className="font-medium">{code.user.fullName}</div>
+                              <div className="text-sm text-muted-foreground">{code.user.phoneNumber}</div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(code.createdAt), "yyyy-MM-dd HH:mm", { locale: ar })}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRestoreCodes([code.id])}
+                              className="flex items-center gap-1"
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                              {t("teacher.codes.hidden.restore")}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePermanentDelete([code.id])}
+                              className="flex items-center gap-1 text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              {t("teacher.codes.delete.deleteButton")}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* Generate Codes Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("teacher.codes.generate.title")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="course" className="mb-2 block">{t("teacher.codes.generate.course")}</Label>
+              <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t("teacher.codes.generate.selectCourse")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="count" className="mb-2 block">{t("teacher.codes.generate.count")}</Label>
+              <Input
+                id="count"
+                type="number"
+                min="1"
+                max="100"
+                value={codeCount}
+                onChange={(e) => setCodeCount(e.target.value)}
+                placeholder={t("teacher.codes.generate.placeholder")}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleGenerateCodes}
+              disabled={isGenerating || !selectedCourse || !codeCount}
+              className="bg-brand hover:bg-brand/90"
+            >
+              {isGenerating ? t("teacher.codes.generate.generating") : t("teacher.codes.generate.create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Copy Codes Dialog */}
+      <Dialog open={isCopyDialogOpen} onOpenChange={setIsCopyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("teacher.codes.copy.title")}</DialogTitle>
+            <DialogDescription>
+              {t("teacher.codes.copy.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="copy-course" className="mb-2 block">{t("teacher.codes.copy.course")}</Label>
+              <Select value={deleteCourseId} onValueChange={setDeleteCourseId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t("teacher.codes.copy.selectCourse")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCopyDialogOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleCopyAllCodes}
+              disabled={!deleteCourseId}
+              className="bg-brand hover:bg-brand/90"
+            >
+              {t("teacher.codes.copy.buttonLabel")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Codes Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("teacher.codes.delete.title")}</DialogTitle>
+            <DialogDescription>
+              {selectedCodes.size > 0
+                ? t("teacher.codes.delete.descriptionSelected", { count: selectedCodes.size })
+                : t("teacher.codes.delete.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedCodes.size === 0 && (
+              <div>
+                <Label htmlFor="delete-course" className="mb-2 block">{t("teacher.codes.delete.course")}</Label>
+                <Select value={deleteCourseId} onValueChange={setDeleteCourseId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("teacher.codes.delete.selectCourse")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courses.map((course) => (
+                      <SelectItem key={course.id} value={course.id}>
+                        {course.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label className="mb-2 block">{t("teacher.codes.delete.action")}</Label>
+              <RadioGroup value={deleteAction} onValueChange={(value) => setDeleteAction(value as "delete" | "hide")}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="hide" id="hide" />
+                  <Label htmlFor="hide" className="cursor-pointer">
+                    {t("teacher.codes.delete.hideOption")}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="delete" id="delete" />
+                  <Label htmlFor="delete" className="cursor-pointer">
+                    {t("teacher.codes.delete.deleteOption")}
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleDeleteCodes}
+              disabled={!deleteCourseId && selectedCodes.size === 0}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteAction === "delete" ? t("teacher.codes.delete.deleteButton") : t("teacher.codes.delete.hideButton")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default TeacherCodesPage;
