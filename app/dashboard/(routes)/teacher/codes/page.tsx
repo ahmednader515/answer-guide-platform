@@ -324,28 +324,30 @@ const TeacherCodesPage = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t("teacher.codes.title")}</h1>
-        <div className="flex gap-2">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{t("teacher.codes.title")}</h1>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Button
             onClick={() => setIsCopyDialogOpen(true)}
             variant="outline"
-            className="flex items-center gap-2"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Copy className="h-4 w-4" />
-            {t("teacher.codes.copy.button")}
+            <span className="hidden sm:inline">{t("teacher.codes.copy.button")}</span>
+            <span className="sm:hidden">{t("teacher.codes.copy.button")}</span>
           </Button>
           <Button
             onClick={() => setIsDeleteDialogOpen(true)}
             variant="outline"
-            className="flex items-center gap-2 text-red-600 hover:text-red-700"
+            className="flex items-center justify-center gap-2 text-red-600 hover:text-red-700 w-full sm:w-auto"
           >
             <Trash2 className="h-4 w-4" />
-            {t("teacher.codes.delete.button")}
+            <span className="hidden sm:inline">{t("teacher.codes.delete.button")}</span>
+            <span className="sm:hidden">{t("teacher.codes.delete.button")}</span>
           </Button>
-          <Button onClick={() => setIsDialogOpen(true)} className="bg-brand hover:bg-brand/90">
-            <Plus className="h-4 w-4 ml-2" />
+          <Button onClick={() => setIsDialogOpen(true)} className="bg-brand hover:bg-brand/90 w-full sm:w-auto">
+            <Plus className="h-4 w-4 sm:ml-2" />
             {t("teacher.codes.createNew")}
           </Button>
         </div>
@@ -354,20 +356,20 @@ const TeacherCodesPage = () => {
       {/* Search and Filter */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col gap-4">
             <div className="flex items-center space-x-2 flex-1">
-              <Search className="h-4 w-4 text-muted-foreground" />
+              <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <Input
                 placeholder={t("teacher.codes.searchPlaceholder")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-sm"
+                className="w-full"
               />
             </div>
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="course-filter" className="whitespace-nowrap">{t("teacher.codes.filterByCourse")}</Label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <Label htmlFor="course-filter" className="whitespace-nowrap text-sm">{t("teacher.codes.filterByCourse")}</Label>
               <Select value={courseFilter} onValueChange={setCourseFilter}>
-                <SelectTrigger id="course-filter" className="w-[250px]">
+                <SelectTrigger id="course-filter" className="w-full sm:w-[250px]">
                   <SelectValue placeholder={t("teacher.codes.allCourses")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -423,89 +425,96 @@ const TeacherCodesPage = () => {
               {t("teacher.codes.empty")}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={selectedCodes.size === filteredCodes.length && filteredCodes.length > 0}
-                      onCheckedChange={toggleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.code")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.course")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.status")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.user")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.usedAt")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.createdAt")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.actions")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCodes.map((code) => (
-                  <TableRow key={code.id}>
-                    <TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedCodes.has(code.id)}
-                        onCheckedChange={() => toggleSelectCode(code.id)}
+                        checked={selectedCodes.size === filteredCodes.length && filteredCodes.length > 0}
+                        onCheckedChange={toggleSelectAll}
                       />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <code className="font-mono text-sm bg-muted px-2 py-1 rounded">
-                          {code.code}
-                        </code>
+                    </TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[120px]">{t("teacher.codes.table.code")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[150px]">{t("teacher.codes.table.course")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[100px]">{t("teacher.codes.table.status")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("teacher.codes.table.user")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("teacher.codes.table.usedAt")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("teacher.codes.table.createdAt")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left w-12">{t("teacher.codes.table.actions")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCodes.map((code) => (
+                    <TableRow key={code.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedCodes.has(code.id)}
+                          onCheckedChange={() => toggleSelectCode(code.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <code className="font-mono text-xs sm:text-sm bg-muted px-2 py-1 rounded break-all">
+                            {code.code}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopyCode(code.code)}
+                            className="h-6 w-6 p-0 flex-shrink-0"
+                          >
+                            {copiedCode === code.code ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-[150px] truncate" title={code.course.title}>
+                          {code.course.title}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={code.isUsed ? "secondary" : "default"} className="text-xs">
+                          {code.isUsed ? t("teacher.codes.status.used") : t("teacher.codes.status.unused")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {code.user ? (
+                          <div>
+                            <div className="font-medium text-sm truncate max-w-[120px]" title={code.user.fullName}>{code.user.fullName}</div>
+                            <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={code.user.phoneNumber}>{code.user.phoneNumber}</div>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs">
+                        {code.usedAt
+                          ? format(new Date(code.usedAt), "yyyy-MM-dd HH:mm", { locale: ar })
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs">
+                        {format(new Date(code.createdAt), "yyyy-MM-dd HH:mm", { locale: ar })}
+                      </TableCell>
+                      <TableCell>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleCopyCode(code.code)}
-                          className="h-6 w-6 p-0"
+                          className="h-8 w-8 p-0"
                         >
-                          {copiedCode === code.code ? (
-                            <Check className="h-3 w-3 text-green-600" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
+                          <Copy className="h-4 w-4" />
                         </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell>{code.course.title}</TableCell>
-                    <TableCell>
-                      <Badge variant={code.isUsed ? "secondary" : "default"}>
-                        {code.isUsed ? t("teacher.codes.status.used") : t("teacher.codes.status.unused")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {code.user ? (
-                        <div>
-                          <div className="font-medium">{code.user.fullName}</div>
-                          <div className="text-sm text-muted-foreground">{code.user.phoneNumber}</div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {code.usedAt
-                        ? format(new Date(code.usedAt), "yyyy-MM-dd HH:mm", { locale: ar })
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(code.createdAt), "yyyy-MM-dd HH:mm", { locale: ar })}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopyCode(code.code)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -514,13 +523,13 @@ const TeacherCodesPage = () => {
       {hiddenCodes.length > 0 && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>{t("teacher.codes.hidden.title")} ({filteredHiddenCodes.length})</CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <CardTitle className="text-lg sm:text-xl">{t("teacher.codes.hidden.title")} ({filteredHiddenCodes.length})</CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsHiddenTableOpen(!isHiddenTableOpen)}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 w-full sm:w-auto"
               >
                 {isHiddenTableOpen ? (
                   <>
@@ -543,70 +552,76 @@ const TeacherCodesPage = () => {
                   {t("teacher.codes.hidden.empty")}
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.code")}</TableHead>
-                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.course")}</TableHead>
-                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.status")}</TableHead>
-                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.user")}</TableHead>
-                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.createdAt")}</TableHead>
-                      <TableHead className="rtl:text-right ltr:text-left">{t("teacher.codes.table.actions")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredHiddenCodes.map((code) => (
-                      <TableRow key={code.id}>
-                        <TableCell>
-                          <code className="font-mono text-sm bg-muted px-2 py-1 rounded">
-                            {code.code}
-                          </code>
-                        </TableCell>
-                        <TableCell>{code.course.title}</TableCell>
-                        <TableCell>
-                          <Badge variant={code.isUsed ? "secondary" : "default"}>
-                            {code.isUsed ? t("teacher.codes.status.used") : t("teacher.codes.status.unused")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {code.user ? (
-                            <div>
-                              <div className="font-medium">{code.user.fullName}</div>
-                              <div className="text-sm text-muted-foreground">{code.user.phoneNumber}</div>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(code.createdAt), "yyyy-MM-dd HH:mm", { locale: ar })}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRestoreCodes([code.id])}
-                              className="flex items-center gap-1"
-                            >
-                              <RotateCcw className="h-3 w-3" />
-                              {t("teacher.codes.hidden.restore")}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handlePermanentDelete([code.id])}
-                              className="flex items-center gap-1 text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                              {t("teacher.codes.delete.deleteButton")}
-                            </Button>
-                          </div>
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[120px]">{t("teacher.codes.table.code")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[150px]">{t("teacher.codes.table.course")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[100px]">{t("teacher.codes.table.status")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("teacher.codes.table.user")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("teacher.codes.table.createdAt")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[180px]">{t("teacher.codes.table.actions")}</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredHiddenCodes.map((code) => (
+                        <TableRow key={code.id}>
+                          <TableCell>
+                            <code className="font-mono text-xs sm:text-sm bg-muted px-2 py-1 rounded break-all">
+                              {code.code}
+                            </code>
+                          </TableCell>
+                          <TableCell>
+                            <div className="max-w-[150px] truncate" title={code.course.title}>
+                              {code.course.title}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={code.isUsed ? "secondary" : "default"} className="text-xs">
+                              {code.isUsed ? t("teacher.codes.status.used") : t("teacher.codes.status.unused")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {code.user ? (
+                              <div>
+                                <div className="font-medium text-sm truncate max-w-[120px]" title={code.user.fullName}>{code.user.fullName}</div>
+                                <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={code.user.phoneNumber}>{code.user.phoneNumber}</div>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell text-xs">
+                            {format(new Date(code.createdAt), "yyyy-MM-dd HH:mm", { locale: ar })}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRestoreCodes([code.id])}
+                                className="flex items-center justify-center gap-1 text-xs h-8 w-full sm:w-auto"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                <span className="hidden sm:inline">{t("teacher.codes.hidden.restore")}</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handlePermanentDelete([code.id])}
+                                className="flex items-center justify-center gap-1 text-red-600 hover:text-red-700 text-xs h-8 w-full sm:w-auto"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                <span className="hidden sm:inline">{t("teacher.codes.delete.deleteButton")}</span>
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           )}
@@ -615,7 +630,7 @@ const TeacherCodesPage = () => {
 
       {/* Generate Codes Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t("teacher.codes.generate.title")}</DialogTitle>
           </DialogHeader>
@@ -623,7 +638,7 @@ const TeacherCodesPage = () => {
             <div>
               <Label htmlFor="course" className="mb-2 block">{t("teacher.codes.generate.course")}</Label>
               <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder={t("teacher.codes.generate.selectCourse")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -645,17 +660,18 @@ const TeacherCodesPage = () => {
                 value={codeCount}
                 onChange={(e) => setCodeCount(e.target.value)}
                 placeholder={t("teacher.codes.generate.placeholder")}
+                className="w-full"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
               {t("common.cancel")}
             </Button>
             <Button
               onClick={handleGenerateCodes}
               disabled={isGenerating || !selectedCourse || !codeCount}
-              className="bg-brand hover:bg-brand/90"
+              className="bg-brand hover:bg-brand/90 w-full sm:w-auto"
             >
               {isGenerating ? t("teacher.codes.generate.generating") : t("teacher.codes.generate.create")}
             </Button>
@@ -665,7 +681,7 @@ const TeacherCodesPage = () => {
 
       {/* Copy Codes Dialog */}
       <Dialog open={isCopyDialogOpen} onOpenChange={setIsCopyDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t("teacher.codes.copy.title")}</DialogTitle>
             <DialogDescription>
@@ -676,7 +692,7 @@ const TeacherCodesPage = () => {
             <div>
               <Label htmlFor="copy-course" className="mb-2 block">{t("teacher.codes.copy.course")}</Label>
               <Select value={deleteCourseId} onValueChange={setDeleteCourseId}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder={t("teacher.codes.copy.selectCourse")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -689,14 +705,14 @@ const TeacherCodesPage = () => {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCopyDialogOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setIsCopyDialogOpen(false)} className="w-full sm:w-auto">
               {t("common.cancel")}
             </Button>
             <Button
               onClick={handleCopyAllCodes}
               disabled={!deleteCourseId}
-              className="bg-brand hover:bg-brand/90"
+              className="bg-brand hover:bg-brand/90 w-full sm:w-auto"
             >
               {t("teacher.codes.copy.buttonLabel")}
             </Button>
@@ -706,7 +722,7 @@ const TeacherCodesPage = () => {
 
       {/* Delete Codes Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t("teacher.codes.delete.title")}</DialogTitle>
             <DialogDescription>
@@ -720,7 +736,7 @@ const TeacherCodesPage = () => {
               <div>
                 <Label htmlFor="delete-course" className="mb-2 block">{t("teacher.codes.delete.course")}</Label>
                 <Select value={deleteCourseId} onValueChange={setDeleteCourseId}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder={t("teacher.codes.delete.selectCourse")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -751,14 +767,14 @@ const TeacherCodesPage = () => {
               </RadioGroup>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="w-full sm:w-auto">
               {t("common.cancel")}
             </Button>
             <Button
               onClick={handleDeleteCodes}
               disabled={!deleteCourseId && selectedCodes.size === 0}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
             >
               {deleteAction === "delete" ? t("teacher.codes.delete.deleteButton") : t("teacher.codes.delete.hideButton")}
             </Button>
