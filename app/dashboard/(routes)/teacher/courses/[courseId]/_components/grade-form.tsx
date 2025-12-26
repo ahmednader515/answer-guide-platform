@@ -46,11 +46,16 @@ export const GradeForm = ({
     // Normalize grade value - handle old/invalid values
     const normalizeGradeValue = (grade: string | null | undefined): string => {
         if (!grade) return "ALL_GRADES";
-        const normalized = grade.trim().toUpperCase();
-        // Check if it's a valid grade value
-        if (["FIRST_SECONDARY", "SECOND_SECONDARY", "THIRD_SECONDARY"].includes(normalized)) {
-            return normalized;
+        const trimmed = grade.trim();
+        // Check if it's a valid Arabic grade value
+        if (trimmed === "الأول الثانوي" || trimmed === "الثاني الثانوي" || trimmed === "الثالث الثانوي") {
+            return trimmed;
         }
+        // Handle old English values for backward compatibility
+        const normalized = trimmed.toUpperCase();
+        if (normalized === "FIRST_SECONDARY") return "الأول الثانوي";
+        if (normalized === "SECOND_SECONDARY") return "الثاني الثانوي";
+        if (normalized === "THIRD_SECONDARY") return "الثالث الثانوي";
         // For old/invalid values, return "ALL_GRADES" (will show as "All Grades")
         return "ALL_GRADES";
     };
@@ -82,18 +87,18 @@ export const GradeForm = ({
 
     const getGradeLabel = (grade: string | null | undefined) => {
         if (!grade || !grade.trim()) return t("auth.grades.allGrades");
-        const normalized = grade.trim().toUpperCase();
-        switch (normalized) {
-            case "FIRST_SECONDARY":
-                return t("auth.grades.firstSecondary");
-            case "SECOND_SECONDARY":
-                return t("auth.grades.secondSecondary");
-            case "THIRD_SECONDARY":
-                return t("auth.grades.thirdSecondary");
-            default:
-                // For old/invalid values, show as "All Grades"
-                return t("auth.grades.allGrades");
-        }
+        const trimmed = grade.trim();
+        // Check Arabic values first
+        if (trimmed === "الأول الثانوي") return t("auth.grades.firstSecondary");
+        if (trimmed === "الثاني الثانوي") return t("auth.grades.secondSecondary");
+        if (trimmed === "الثالث الثانوي") return t("auth.grades.thirdSecondary");
+        // Handle old English values for backward compatibility
+        const normalized = trimmed.toUpperCase();
+        if (normalized === "FIRST_SECONDARY") return t("auth.grades.firstSecondary");
+        if (normalized === "SECOND_SECONDARY") return t("auth.grades.secondSecondary");
+        if (normalized === "THIRD_SECONDARY") return t("auth.grades.thirdSecondary");
+        // For old/invalid values, show as "All Grades"
+        return t("auth.grades.allGrades");
     };
 
     return (
@@ -139,9 +144,9 @@ export const GradeForm = ({
                                         </FormControl>
                                         <SelectContent>
                                             <SelectItem value="ALL_GRADES">{t("auth.grades.allGrades")}</SelectItem>
-                                            <SelectItem value="FIRST_SECONDARY">{t("auth.grades.firstSecondary")}</SelectItem>
-                                            <SelectItem value="SECOND_SECONDARY">{t("auth.grades.secondSecondary")}</SelectItem>
-                                            <SelectItem value="THIRD_SECONDARY">{t("auth.grades.thirdSecondary")}</SelectItem>
+                                            <SelectItem value="الأول الثانوي">{t("auth.grades.firstSecondary")}</SelectItem>
+                                            <SelectItem value="الثاني الثانوي">{t("auth.grades.secondSecondary")}</SelectItem>
+                                            <SelectItem value="الثالث الثانوي">{t("auth.grades.thirdSecondary")}</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />

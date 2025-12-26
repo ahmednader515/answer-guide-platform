@@ -232,9 +232,9 @@ export default function CreateAccountPage() {
                       <SelectValue placeholder={t("auth.selectGrade")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="FIRST_SECONDARY">{t("auth.grades.firstSecondary")}</SelectItem>
-                      <SelectItem value="SECOND_SECONDARY">{t("auth.grades.secondSecondary")}</SelectItem>
-                      <SelectItem value="THIRD_SECONDARY">{t("auth.grades.thirdSecondary")}</SelectItem>
+                      <SelectItem value="الأول الثانوي">{t("auth.grades.firstSecondary")}</SelectItem>
+                      <SelectItem value="الثاني الثانوي">{t("auth.grades.secondSecondary")}</SelectItem>
+                      <SelectItem value="الثالث الثانوي">{t("auth.grades.thirdSecondary")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

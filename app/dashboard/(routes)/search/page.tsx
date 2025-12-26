@@ -48,8 +48,16 @@ export default async function SearchPage({
         // Trim and normalize the grade value to ensure exact match
         const userGrade = user.grade.trim();
         
+        // Normalize old English values to Arabic for backward compatibility
+        let normalizedUserGrade = userGrade;
+        const upperGrade = userGrade.toUpperCase();
+        if (upperGrade === "FIRST_SECONDARY") normalizedUserGrade = "الأول الثانوي";
+        else if (upperGrade === "SECOND_SECONDARY") normalizedUserGrade = "الثاني الثانوي";
+        else if (upperGrade === "THIRD_SECONDARY") normalizedUserGrade = "الثالث الثانوي";
+        
         // Use AND to combine base conditions with grade filter
-        // Structure: (isPublished AND title) AND (grade = userGrade OR grade = null)
+        // Structure: (isPublished AND title) AND (grade = userGrade OR grade = normalizedUserGrade OR grade = null)
+        // This handles both Arabic and old English values
         whereClause = {
             AND: [
                 {
@@ -62,8 +70,9 @@ export default async function SearchPage({
                 },
                 {
                     OR: [
-                        { grade: userGrade },
-                        { grade: null },
+                        { grade: userGrade }, // Match exact Arabic value
+                        ...(normalizedUserGrade !== userGrade ? [{ grade: normalizedUserGrade }] : []), // Match normalized value if different
+                        { grade: null }, // Courses with no grade (available to all)
                     ],
                 },
             ],

@@ -18,7 +18,7 @@ model User {
   image                   String?
   role                    String    @default("USER")
   balance                 Float     @default(0)
-  grade                   String?   // "FIRST_SECONDARY", "SECOND_SECONDARY", "THIRD_SECONDARY"
+  grade                   String?   // "الأول الثانوي", "الثاني الثانوي", "الثالث الثانوي"
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
   courses                 Course[]
@@ -38,7 +38,7 @@ model Course {
   imageUrl String? @db.Text
   price Float?
   isPublished Boolean @default(false)
-  grade String? // "FIRST_SECONDARY", "SECOND_SECONDARY", "THIRD_SECONDARY"
+  grade String? // "الأول الثانوي", "الثاني الثانوي", "الثالث الثانوي"
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -146,7 +146,7 @@ model PurchaseCode {
     usedAt DateTime? // When the code was used
     isUsed Boolean @default(false)
     isHidden Boolean @default(false) // Hide code from main table but keep it usable
-    grade String? // "FIRST_SECONDARY", "SECOND_SECONDARY", "THIRD_SECONDARY"
+    grade String? // "الأول الثانوي", "الثاني الثانوي", "الثالث الثانوي"
     course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
     creator User @relation("CodeCreator", fields: [createdBy], references: [id], onDelete: Cascade)
     user User? @relation("CodeUser", fields: [usedBy], references: [id], onDelete: SetNull)
