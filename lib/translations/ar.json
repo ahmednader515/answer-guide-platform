@@ -1059,7 +1059,42 @@
         "generateSuccess": "تم إنشاء {count} كود بنجاح",
         "generateError": "حدث خطأ أثناء إنشاء الأكواد",
         "copySuccess": "تم نسخ الكود",
-        "copyError": "فشل نسخ الكود"
+        "copyError": "فشل نسخ الكود",
+        "copyAllError": "فشل نسخ الأكواد",
+        "deleteError": "فشل حذف الأكواد",
+        "restoreError": "فشل استعادة الأكواد"
+      },
+      "copy": {
+        "button": "نسخ الأكواد",
+        "title": "نسخ جميع الأكواد",
+        "description": "اختر الكورس لنسخ جميع الأكواد الخاصة به",
+        "course": "الكورس",
+        "selectCourse": "اختر الكورس...",
+        "buttonLabel": "نسخ الأكواد",
+        "success": "تم نسخ {count} كود إلى الحافظة"
+      },
+      "delete": {
+        "button": "حذف الأكواد",
+        "title": "حذف الأكواد",
+        "description": "اختر الكورس أو الأكواد للحذف",
+        "descriptionSelected": "لقد اخترت {count} كود. اختر إجراء:",
+        "course": "الكورس",
+        "selectCourse": "اختر الكورس...",
+        "action": "الإجراء",
+        "hideOption": "إخفاء الأكواد (لا تزال قابلة للاستخدام، يمكن استعادتها)",
+        "deleteOption": "حذف الأكواد نهائياً (لا يمكن استعادتها)",
+        "hideButton": "إخفاء",
+        "deleteButton": "حذف",
+        "hideSuccess": "تم إخفاء {count} كود"
+      },
+      "hidden": {
+        "title": "الأكواد المخفية",
+        "show": "إظهار",
+        "hide": "إخفاء",
+        "empty": "لا توجد أكواد مخفية",
+        "restore": "استعادة",
+        "restoreSuccess": "تم استعادة {count} كود",
+        "deleteSuccess": "تم حذف {count} كود نهائياً"
       },
       "empty": "لا توجد أكواد"
     },

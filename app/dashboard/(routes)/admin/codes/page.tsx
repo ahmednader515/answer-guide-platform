@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Copy, Check, Ticket } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Search, Plus, Copy, Check, Trash2, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -26,6 +28,7 @@ interface PurchaseCode {
   code: string;
   courseId: string;
   isUsed: boolean;
+  isHidden: boolean;
   usedAt: string | null;
   createdAt: string;
   course: {
@@ -47,6 +50,7 @@ interface PurchaseCode {
 const AdminCodesPage = () => {
   const { t } = useLanguage();
   const [codes, setCodes] = useState<PurchaseCode[]>([]);
+  const [hiddenCodes, setHiddenCodes] = useState<PurchaseCode[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -55,8 +59,14 @@ const AdminCodesPage = () => {
   const [codeCount, setCodeCount] = useState<string>("1");
   const [selectedGrade, setSelectedGrade] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
+  const [isHiddenTableOpen, setIsHiddenTableOpen] = useState(false);
+  const [deleteAction, setDeleteAction] = useState<"delete" | "hide">("hide");
+  const [deleteCourseId, setDeleteCourseId] = useState<string>("");
 
   useEffect(() => {
     fetchCodes();
@@ -65,12 +75,21 @@ const AdminCodesPage = () => {
 
   const fetchCodes = async () => {
     try {
-      const response = await fetch("/api/admin/codes");
-      if (response.ok) {
-        const data = await response.json();
-        setCodes(data);
-      } else {
-        toast.error(t("admin.codes.errors.loadError"));
+      const [visibleResponse, hiddenResponse] = await Promise.all([
+        fetch("/api/admin/codes?includeHidden=false"),
+        fetch("/api/admin/codes?includeHidden=true"),
+      ]);
+
+      if (visibleResponse.ok) {
+        const visibleData = await visibleResponse.json();
+        // Filter out hidden codes and used codes (used codes are automatically hidden)
+        setCodes(visibleData.filter((code: PurchaseCode) => !code.isHidden && !code.isUsed));
+      }
+
+      if (hiddenResponse.ok) {
+        const hiddenData = await hiddenResponse.json();
+        // Show all hidden codes (including used codes that are automatically hidden)
+        setHiddenCodes(hiddenData.filter((code: PurchaseCode) => code.isHidden));
       }
     } catch (error) {
       console.error("Error fetching codes:", error);
@@ -85,7 +104,6 @@ const AdminCodesPage = () => {
       const response = await fetch("/api/courses");
       if (response.ok) {
         const data = await response.json();
-        // Filter only published courses
         const publishedCourses = data.filter((course: Course) => course.isPublished);
         setCourses(publishedCourses);
       }
@@ -121,7 +139,7 @@ const AdminCodesPage = () => {
         setSelectedCourse("");
         setCodeCount("1");
         setSelectedGrade("");
-        fetchCodes(); // Refresh the list
+        fetchCodes();
       } else {
         const error = await response.text();
         toast.error(error || t("admin.codes.errors.generateError"));
@@ -145,7 +163,157 @@ const AdminCodesPage = () => {
     }
   };
 
+  const handleCopyAllCodes = async () => {
+    if (!deleteCourseId) {
+      toast.error(t("admin.codes.copy.selectCourse"));
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/codes/copy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ courseId: deleteCourseId }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        await navigator.clipboard.writeText(data.codes);
+        toast.success(t("admin.codes.copy.success", { count: data.count }));
+        setIsCopyDialogOpen(false);
+        setDeleteCourseId("");
+      } else {
+        const error = await response.text();
+        toast.error(error || t("admin.codes.errors.copyAllError"));
+      }
+    } catch (error) {
+      console.error("Error copying codes:", error);
+      toast.error(t("admin.codes.errors.copyAllError"));
+    }
+  };
+
+  const handleDeleteCodes = async () => {
+    if (!deleteCourseId && selectedCodes.size === 0) {
+      toast.error(t("admin.codes.delete.description"));
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/codes/bulk", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          courseId: deleteCourseId || undefined,
+          codeIds: selectedCodes.size > 0 ? Array.from(selectedCodes) : undefined,
+          action: deleteAction,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (deleteAction === "delete") {
+          toast.success(t("admin.codes.hidden.deleteSuccess", { count: data.deleted || data.hidden }));
+        } else {
+          toast.success(t("admin.codes.delete.hideSuccess", { count: data.hidden }));
+        }
+        setIsDeleteDialogOpen(false);
+        setDeleteCourseId("");
+        setDeleteAction("hide");
+        setSelectedCodes(new Set());
+        fetchCodes();
+      } else {
+        const error = await response.text();
+        toast.error(error || t("admin.codes.errors.deleteError"));
+      }
+    } catch (error) {
+      console.error("Error deleting codes:", error);
+      toast.error(t("admin.codes.errors.deleteError"));
+    }
+  };
+
+  const handleRestoreCodes = async (codeIds: string[]) => {
+    try {
+      const response = await fetch("/api/admin/codes/bulk", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ codeIds }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(t("admin.codes.hidden.restoreSuccess", { count: data.restored }));
+        fetchCodes();
+      } else {
+        const error = await response.text();
+        toast.error(error || t("admin.codes.errors.restoreError"));
+      }
+    } catch (error) {
+      console.error("Error restoring codes:", error);
+      toast.error(t("admin.codes.errors.restoreError"));
+    }
+  };
+
+  const handlePermanentDelete = async (codeIds: string[]) => {
+    try {
+      const response = await fetch("/api/admin/codes/bulk", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          codeIds,
+          action: "delete",
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(t("admin.codes.hidden.deleteSuccess", { count: data.deleted }));
+        fetchCodes();
+      } else {
+        const error = await response.text();
+        toast.error(error || t("admin.codes.errors.deleteError"));
+      }
+    } catch (error) {
+      console.error("Error deleting codes:", error);
+      toast.error(t("admin.codes.errors.deleteError"));
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedCodes.size === filteredCodes.length) {
+      setSelectedCodes(new Set());
+    } else {
+      setSelectedCodes(new Set(filteredCodes.map((code) => code.id)));
+    }
+  };
+
+  const toggleSelectCode = (codeId: string) => {
+    const newSelected = new Set(selectedCodes);
+    if (newSelected.has(codeId)) {
+      newSelected.delete(codeId);
+    } else {
+      newSelected.add(codeId);
+    }
+    setSelectedCodes(newSelected);
+  };
+
   const filteredCodes = codes.filter((code) => {
+    const matchesSearch =
+      code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      code.course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      code.creator.fullName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCourse = courseFilter === "all" || code.courseId === courseFilter;
+    return matchesSearch && matchesCourse;
+  });
+
+  const filteredHiddenCodes = hiddenCodes.filter((code) => {
     const matchesSearch =
       code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       code.course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -166,32 +334,50 @@ const AdminCodesPage = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t("admin.codes.title")}</h1>
-        <Button onClick={() => setIsDialogOpen(true)} className="bg-brand hover:bg-brand/90">
-          <Plus className="h-4 w-4 ml-2" />
-          {t("admin.codes.createNew")}
-        </Button>
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{t("admin.codes.title")}</h1>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button
+            onClick={() => setIsCopyDialogOpen(true)}
+            variant="outline"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
+          >
+            <Copy className="h-4 w-4" />
+            {t("admin.codes.copy.button")}
+          </Button>
+          <Button
+            onClick={() => setIsDeleteDialogOpen(true)}
+            variant="outline"
+            className="flex items-center justify-center gap-2 text-red-600 hover:text-red-700 w-full sm:w-auto"
+          >
+            <Trash2 className="h-4 w-4" />
+            {t("admin.codes.delete.button")}
+          </Button>
+          <Button onClick={() => setIsDialogOpen(true)} className="bg-brand hover:bg-brand/90 w-full sm:w-auto">
+            <Plus className="h-4 w-4 sm:ml-2" />
+            {t("admin.codes.createNew")}
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filter */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col gap-4">
             <div className="flex items-center space-x-2 flex-1">
-              <Search className="h-4 w-4 text-muted-foreground" />
+              <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <Input
                 placeholder={t("admin.codes.searchPlaceholder")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-sm"
+                className="w-full"
               />
             </div>
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="course-filter" className="whitespace-nowrap">{t("admin.codes.filterByCourse")}</Label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <Label htmlFor="course-filter" className="whitespace-nowrap text-sm">{t("admin.codes.filterByCourse")}</Label>
               <Select value={courseFilter} onValueChange={setCourseFilter}>
-                <SelectTrigger id="course-filter" className="w-[250px]">
+                <SelectTrigger id="course-filter" className="w-full sm:w-[250px]">
                   <SelectValue placeholder={t("admin.codes.allCourses")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -247,91 +433,226 @@ const AdminCodesPage = () => {
               {t("admin.codes.empty")}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("admin.codes.table.code")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("admin.codes.table.course")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("admin.codes.table.creator")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("admin.codes.table.status")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("admin.codes.table.user")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("admin.codes.table.usedAt")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("admin.codes.table.createdAt")}</TableHead>
-                  <TableHead className="rtl:text-right ltr:text-left">{t("admin.codes.table.actions")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCodes.map((code) => (
-                  <TableRow key={code.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <code className="font-mono text-sm bg-muted px-2 py-1 rounded">
-                          {code.code}
-                        </code>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedCodes.size === filteredCodes.length && filteredCodes.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[120px]">{t("admin.codes.table.code")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[150px]">{t("admin.codes.table.course")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("admin.codes.table.creator")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[100px]">{t("admin.codes.table.status")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("admin.codes.table.user")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("admin.codes.table.usedAt")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("admin.codes.table.createdAt")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left w-12">{t("admin.codes.table.actions")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCodes.map((code) => (
+                    <TableRow key={code.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedCodes.has(code.id)}
+                          onCheckedChange={() => toggleSelectCode(code.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <code className="font-mono text-xs sm:text-sm bg-muted px-2 py-1 rounded break-all">
+                            {code.code}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopyCode(code.code)}
+                            className="h-6 w-6 p-0 flex-shrink-0"
+                          >
+                            {copiedCode === code.code ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-[150px] truncate" title={code.course.title}>
+                          {code.course.title}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div>
+                          <div className="font-medium text-sm truncate max-w-[120px]" title={code.creator.fullName}>{code.creator.fullName}</div>
+                          <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={code.creator.phoneNumber}>{code.creator.phoneNumber}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={code.isUsed ? "secondary" : "default"} className="text-xs">
+                          {code.isUsed ? t("admin.codes.status.used") : t("admin.codes.status.unused")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {code.user ? (
+                          <div>
+                            <div className="font-medium text-sm truncate max-w-[120px]" title={code.user.fullName}>{code.user.fullName}</div>
+                            <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={code.user.phoneNumber}>{code.user.phoneNumber}</div>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs">
+                        {code.usedAt
+                          ? format(new Date(code.usedAt), "yyyy-MM-dd HH:mm", { locale: ar })
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs">
+                        {format(new Date(code.createdAt), "yyyy-MM-dd HH:mm", { locale: ar })}
+                      </TableCell>
+                      <TableCell>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleCopyCode(code.code)}
-                          className="h-6 w-6 p-0"
+                          className="h-8 w-8 p-0"
                         >
-                          {copiedCode === code.code ? (
-                            <Check className="h-3 w-3 text-green-600" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
+                          <Copy className="h-4 w-4" />
                         </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell>{code.course.title}</TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{code.creator.fullName}</div>
-                        <div className="text-sm text-muted-foreground">{code.creator.phoneNumber}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={code.isUsed ? "secondary" : "default"}>
-                        {code.isUsed ? t("admin.codes.status.used") : t("admin.codes.status.unused")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {code.user ? (
-                        <div>
-                          <div className="font-medium">{code.user.fullName}</div>
-                          <div className="text-sm text-muted-foreground">{code.user.phoneNumber}</div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {code.usedAt
-                        ? format(new Date(code.usedAt), "yyyy-MM-dd HH:mm", { locale: ar })
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(code.createdAt), "yyyy-MM-dd HH:mm", { locale: ar })}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopyCode(code.code)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Hidden Codes Table */}
+      {hiddenCodes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <CardTitle className="text-lg sm:text-xl">{t("admin.codes.hidden.title")} ({filteredHiddenCodes.length})</CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsHiddenTableOpen(!isHiddenTableOpen)}
+                className="flex items-center gap-2 w-full sm:w-auto"
+              >
+                {isHiddenTableOpen ? (
+                  <>
+                    <ChevronUp className="h-4 w-4" />
+                    {t("admin.codes.hidden.hide")}
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4" />
+                    {t("admin.codes.hidden.show")}
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          {isHiddenTableOpen && (
+            <CardContent>
+              {filteredHiddenCodes.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {t("admin.codes.hidden.empty")}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[120px]">{t("admin.codes.table.code")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[150px]">{t("admin.codes.table.course")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("admin.codes.table.creator")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[100px]">{t("admin.codes.table.status")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("admin.codes.table.user")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("admin.codes.table.createdAt")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[180px]">{t("admin.codes.table.actions")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredHiddenCodes.map((code) => (
+                        <TableRow key={code.id}>
+                          <TableCell>
+                            <code className="font-mono text-xs sm:text-sm bg-muted px-2 py-1 rounded break-all">
+                              {code.code}
+                            </code>
+                          </TableCell>
+                          <TableCell>
+                            <div className="max-w-[150px] truncate" title={code.course.title}>
+                              {code.course.title}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <div>
+                              <div className="font-medium text-sm truncate max-w-[120px]" title={code.creator.fullName}>{code.creator.fullName}</div>
+                              <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={code.creator.phoneNumber}>{code.creator.phoneNumber}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={code.isUsed ? "secondary" : "default"} className="text-xs">
+                              {code.isUsed ? t("admin.codes.status.used") : t("admin.codes.status.unused")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {code.user ? (
+                              <div>
+                                <div className="font-medium text-sm truncate max-w-[120px]" title={code.user.fullName}>{code.user.fullName}</div>
+                                <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={code.user.phoneNumber}>{code.user.phoneNumber}</div>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell text-xs">
+                            {format(new Date(code.createdAt), "yyyy-MM-dd HH:mm", { locale: ar })}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRestoreCodes([code.id])}
+                                className="flex items-center justify-center gap-1 text-xs h-8 w-full sm:w-auto"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                <span className="hidden sm:inline">{t("admin.codes.hidden.restore")}</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handlePermanentDelete([code.id])}
+                                className="flex items-center justify-center gap-1 text-red-600 hover:text-red-700 text-xs h-8 w-full sm:w-auto"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                <span className="hidden sm:inline">{t("admin.codes.delete.deleteButton")}</span>
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+      )}
+
       {/* Generate Codes Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t("admin.codes.generate.title")}</DialogTitle>
           </DialogHeader>
@@ -339,7 +660,7 @@ const AdminCodesPage = () => {
             <div>
               <Label htmlFor="course" className="mb-2 block">{t("admin.codes.generate.course")}</Label>
               <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder={t("admin.codes.generate.selectCourse")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -361,12 +682,13 @@ const AdminCodesPage = () => {
                 value={codeCount}
                 onChange={(e) => setCodeCount(e.target.value)}
                 placeholder={t("admin.codes.generate.countPlaceholder")}
+                className="w-full"
               />
             </div>
             <div>
               <Label htmlFor="grade" className="mb-2 block">{t("auth.grade")}</Label>
               <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder={t("auth.selectGrade")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -377,16 +699,119 @@ const AdminCodesPage = () => {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
               {t("admin.codes.generate.cancel")}
             </Button>
             <Button
               onClick={handleGenerateCodes}
               disabled={isGenerating || !selectedCourse || !codeCount || !selectedGrade}
-              className="bg-brand hover:bg-brand/90"
+              className="bg-brand hover:bg-brand/90 w-full sm:w-auto"
             >
               {isGenerating ? t("admin.codes.generate.creating") : t("admin.codes.generate.create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Copy Codes Dialog */}
+      <Dialog open={isCopyDialogOpen} onOpenChange={setIsCopyDialogOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("admin.codes.copy.title")}</DialogTitle>
+            <DialogDescription>
+              {t("admin.codes.copy.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="copy-course" className="mb-2 block">{t("admin.codes.copy.course")}</Label>
+              <Select value={deleteCourseId} onValueChange={setDeleteCourseId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t("admin.codes.copy.selectCourse")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setIsCopyDialogOpen(false)} className="w-full sm:w-auto">
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleCopyAllCodes}
+              disabled={!deleteCourseId}
+              className="bg-brand hover:bg-brand/90 w-full sm:w-auto"
+            >
+              {t("admin.codes.copy.buttonLabel")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Codes Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("admin.codes.delete.title")}</DialogTitle>
+            <DialogDescription>
+              {selectedCodes.size > 0
+                ? t("admin.codes.delete.descriptionSelected", { count: selectedCodes.size })
+                : t("admin.codes.delete.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedCodes.size === 0 && (
+              <div>
+                <Label htmlFor="delete-course" className="mb-2 block">{t("admin.codes.delete.course")}</Label>
+                <Select value={deleteCourseId} onValueChange={setDeleteCourseId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={t("admin.codes.delete.selectCourse")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courses.map((course) => (
+                      <SelectItem key={course.id} value={course.id}>
+                        {course.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label className="mb-2 block">{t("admin.codes.delete.action")}</Label>
+              <RadioGroup value={deleteAction} onValueChange={(value) => setDeleteAction(value as "delete" | "hide")}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="hide" id="hide" />
+                  <Label htmlFor="hide" className="cursor-pointer">
+                    {t("admin.codes.delete.hideOption")}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="delete" id="delete" />
+                  <Label htmlFor="delete" className="cursor-pointer">
+                    {t("admin.codes.delete.deleteOption")}
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="w-full sm:w-auto">
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleDeleteCodes}
+              disabled={!deleteCourseId && selectedCodes.size === 0}
+              className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
+            >
+              {deleteAction === "delete" ? t("admin.codes.delete.deleteButton") : t("admin.codes.delete.hideButton")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -396,4 +821,3 @@ const AdminCodesPage = () => {
 };
 
 export default AdminCodesPage;
-

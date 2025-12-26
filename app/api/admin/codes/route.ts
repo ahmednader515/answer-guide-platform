@@ -21,7 +21,13 @@ export async function GET(req: NextRequest) {
       return new NextResponse("Forbidden", { status: 403 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const includeHidden = searchParams.get("includeHidden") === "true";
+
     const codes = await db.purchaseCode.findMany({
+      where: {
+        ...(includeHidden !== true ? { isHidden: false } : {}),
+      },
       include: {
         course: {
           select: {
