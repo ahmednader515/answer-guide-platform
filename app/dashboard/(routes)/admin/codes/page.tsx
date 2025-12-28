@@ -53,6 +53,10 @@ const AdminCodesPage = () => {
   const [hiddenCodes, setHiddenCodes] = useState<PurchaseCode[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMoreCodes, setLoadingMoreCodes] = useState(false);
+  const [loadingMoreHidden, setLoadingMoreHidden] = useState(false);
+  const [hasMoreCodes, setHasMoreCodes] = useState(false);
+  const [hasMoreHidden, setHasMoreHidden] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [courseFilter, setCourseFilter] = useState<string>("all");
   const [selectedCourse, setSelectedCourse] = useState<string>("");
@@ -69,33 +73,117 @@ const AdminCodesPage = () => {
   const [deleteCourseId, setDeleteCourseId] = useState<string>("");
 
   useEffect(() => {
-    fetchCodes();
+    fetchCodes(true);
     fetchCourses();
   }, []);
 
-  const fetchCodes = async () => {
+  const fetchCodes = async (reset = false) => {
     try {
+      if (reset) {
+        setLoading(true);
+      }
+      const skipCodes = reset ? 0 : codes.length;
+      const skipHidden = reset ? 0 : hiddenCodes.length;
+
       const [visibleResponse, hiddenResponse] = await Promise.all([
-        fetch("/api/admin/codes?includeHidden=false"),
-        fetch("/api/admin/codes?includeHidden=true"),
+        fetch(`/api/admin/codes?includeHidden=false&skip=${skipCodes}&take=25`),
+        fetch(`/api/admin/codes?includeHidden=true&skip=${skipHidden}&take=25`),
       ]);
 
       if (visibleResponse.ok) {
         const visibleData = await visibleResponse.json();
         // Filter out hidden codes and used codes (used codes are automatically hidden)
-        setCodes(visibleData.filter((code: PurchaseCode) => !code.isHidden && !code.isUsed));
+        const filteredCodes = (visibleData.codes || []).filter((code: PurchaseCode) => !code.isHidden && !code.isUsed);
+        if (reset) {
+          // Remove duplicates when resetting
+          const uniqueCodes = Array.from(
+            new Map(filteredCodes.map((code: PurchaseCode) => [code.id, code])).values()
+          ) as PurchaseCode[];
+          setCodes(uniqueCodes);
+        } else {
+          // Remove duplicates when appending
+          setCodes(prev => {
+            const existingIds = new Set(prev.map(c => c.id));
+            const newCodes = filteredCodes.filter((code: PurchaseCode) => !existingIds.has(code.id));
+            return [...prev, ...newCodes];
+          });
+        }
+        setHasMoreCodes(visibleData.hasMore || false);
       }
 
       if (hiddenResponse.ok) {
         const hiddenData = await hiddenResponse.json();
         // Show all hidden codes (including used codes that are automatically hidden)
-        setHiddenCodes(hiddenData.filter((code: PurchaseCode) => code.isHidden));
+        const filteredHidden = (hiddenData.codes || []).filter((code: PurchaseCode) => code.isHidden);
+        if (reset) {
+          // Remove duplicates when resetting
+          const uniqueHidden = Array.from(
+            new Map(filteredHidden.map((code: PurchaseCode) => [code.id, code])).values()
+          ) as PurchaseCode[];
+          setHiddenCodes(uniqueHidden);
+        } else {
+          // Remove duplicates when appending
+          setHiddenCodes(prev => {
+            const existingIds = new Set(prev.map(c => c.id));
+            const newCodes = filteredHidden.filter((code: PurchaseCode) => !existingIds.has(code.id));
+            return [...prev, ...newCodes];
+          });
+        }
+        setHasMoreHidden(hiddenData.hasMore || false);
       }
     } catch (error) {
       console.error("Error fetching codes:", error);
       toast.error(t("admin.codes.errors.loadError"));
     } finally {
       setLoading(false);
+      setLoadingMoreCodes(false);
+      setLoadingMoreHidden(false);
+    }
+  };
+
+  const handleLoadMoreCodes = async () => {
+    setLoadingMoreCodes(true);
+    try {
+      const skipCodes = codes.length;
+      const response = await fetch(`/api/admin/codes?includeHidden=false&skip=${skipCodes}&take=25`);
+      if (response.ok) {
+        const data = await response.json();
+        const filteredCodes = (data.codes || []).filter((code: PurchaseCode) => !code.isHidden && !code.isUsed);
+        // Remove duplicates by ID
+        setCodes(prev => {
+          const existingIds = new Set(prev.map(c => c.id));
+          const newCodes = filteredCodes.filter((code: PurchaseCode) => !existingIds.has(code.id));
+          return [...prev, ...newCodes];
+        });
+        setHasMoreCodes(data.hasMore || false);
+      }
+    } catch (error) {
+      console.error("Error loading more codes:", error);
+    } finally {
+      setLoadingMoreCodes(false);
+    }
+  };
+
+  const handleLoadMoreHidden = async () => {
+    setLoadingMoreHidden(true);
+    try {
+      const skipHidden = hiddenCodes.length;
+      const response = await fetch(`/api/admin/codes?includeHidden=true&skip=${skipHidden}&take=25`);
+      if (response.ok) {
+        const data = await response.json();
+        const filteredHidden = (data.codes || []).filter((code: PurchaseCode) => code.isHidden);
+        // Remove duplicates by ID
+        setHiddenCodes(prev => {
+          const existingIds = new Set(prev.map(c => c.id));
+          const newCodes = filteredHidden.filter((code: PurchaseCode) => !existingIds.has(code.id));
+          return [...prev, ...newCodes];
+        });
+        setHasMoreHidden(data.hasMore || false);
+      }
+    } catch (error) {
+      console.error("Error loading more hidden codes:", error);
+    } finally {
+      setLoadingMoreHidden(false);
     }
   };
 
@@ -139,7 +227,7 @@ const AdminCodesPage = () => {
         setSelectedCourse("");
         setCodeCount("1");
         setSelectedGrade("");
-        fetchCodes();
+        fetchCodes(true);
       } else {
         const error = await response.text();
         toast.error(error || t("admin.codes.errors.generateError"));
@@ -224,7 +312,7 @@ const AdminCodesPage = () => {
         setDeleteCourseId("");
         setDeleteAction("hide");
         setSelectedCodes(new Set());
-        fetchCodes();
+        fetchCodes(true);
       } else {
         const error = await response.text();
         toast.error(error || t("admin.codes.errors.deleteError"));
@@ -248,7 +336,7 @@ const AdminCodesPage = () => {
       if (response.ok) {
         const data = await response.json();
         toast.success(t("admin.codes.hidden.restoreSuccess", { count: data.restored }));
-        fetchCodes();
+        fetchCodes(true);
       } else {
         const error = await response.text();
         toast.error(error || t("admin.codes.errors.restoreError"));
@@ -275,7 +363,7 @@ const AdminCodesPage = () => {
       if (response.ok) {
         const data = await response.json();
         toast.success(t("admin.codes.hidden.deleteSuccess", { count: data.deleted }));
-        fetchCodes();
+        fetchCodes(true);
       } else {
         const error = await response.text();
         toast.error(error || t("admin.codes.errors.deleteError"));
@@ -304,7 +392,10 @@ const AdminCodesPage = () => {
     setSelectedCodes(newSelected);
   };
 
+  // Filter codes: only show non-hidden, non-used codes
   const filteredCodes = codes.filter((code) => {
+    // Ensure code is not hidden and not used
+    if (code.isHidden || code.isUsed) return false;
     const matchesSearch =
       code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       code.course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -313,7 +404,10 @@ const AdminCodesPage = () => {
     return matchesSearch && matchesCourse;
   });
 
+  // Filter hidden codes: only show hidden codes
   const filteredHiddenCodes = hiddenCodes.filter((code) => {
+    // Ensure code is hidden
+    if (!code.isHidden) return false;
     const matchesSearch =
       code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       code.course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -531,6 +625,17 @@ const AdminCodesPage = () => {
               </Table>
             </div>
           )}
+          {hasMoreCodes && !searchTerm && courseFilter === "all" && (
+            <div className="flex justify-center mt-4">
+              <Button
+                variant="outline"
+                onClick={handleLoadMoreCodes}
+                disabled={loadingMoreCodes}
+              >
+                {loadingMoreCodes ? t("common.loading") : t("common.showMore")}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -643,6 +748,17 @@ const AdminCodesPage = () => {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+              {hasMoreHidden && !searchTerm && courseFilter === "all" && (
+                <div className="flex justify-center mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={handleLoadMoreHidden}
+                    disabled={loadingMoreHidden}
+                  >
+                    {loadingMoreHidden ? t("common.loading") : t("common.showMore")}
+                  </Button>
                 </div>
               )}
             </CardContent>

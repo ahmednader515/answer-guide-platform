@@ -63,6 +63,8 @@ const ProgressPage = () => {
     const { t } = useLanguage();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
@@ -72,21 +74,39 @@ const ProgressPage = () => {
     const [loadingProgress, setLoadingProgress] = useState(false);
 
     useEffect(() => {
-        fetchUsers();
+        fetchUsers(true);
     }, []);
 
-    const fetchUsers = async () => {
+    const fetchUsers = async (reset = false) => {
         try {
-            const response = await fetch("/api/admin/users");
+            if (reset) {
+                setLoading(true);
+            } else {
+                setLoadingMore(true);
+            }
+            const skip = reset ? 0 : users.length;
+            const response = await fetch(`/api/admin/users?skip=${skip}&take=25`);
             if (response.ok) {
                 const data = await response.json();
-                setUsers(data);
+                // Handle both old format (array) and new format (object with users)
+                const fetchedUsers = Array.isArray(data) ? data : (data.users || []);
+                if (reset) {
+                    setUsers(fetchedUsers);
+                } else {
+                    setUsers(prev => [...prev, ...fetchedUsers]);
+                }
+                setHasMore(data.hasMore || false);
             }
         } catch (error) {
             console.error("Error fetching users:", error);
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
+    };
+
+    const handleLoadMore = () => {
+        fetchUsers(false);
     };
 
     const fetchUserProgress = async (userId: string) => {
@@ -196,6 +216,17 @@ const ProgressPage = () => {
                             ))}
                         </TableBody>
                     </Table>
+                    {hasMore && !searchTerm && (
+                        <div className="flex justify-center mt-4">
+                            <Button
+                                variant="outline"
+                                onClick={handleLoadMore}
+                                disabled={loadingMore}
+                            >
+                                {loadingMore ? t("common.loading") : t("common.showMore")}
+                            </Button>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

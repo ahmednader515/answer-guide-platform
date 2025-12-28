@@ -23,33 +23,53 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const includeHidden = searchParams.get("includeHidden") === "true";
+    const skip = parseInt(searchParams.get("skip") || "0");
+    const take = parseInt(searchParams.get("take") || "25");
     
-    const codes = await db.purchaseCode.findMany({
-      where: {
-        createdBy: userId,
-        ...(includeHidden !== true ? { isHidden: false } : {}),
-      },
-      include: {
-        course: {
-          select: {
-            id: true,
-            title: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            phoneNumber: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    const whereClause: any = {
+      createdBy: userId,
+    };
+    
+    // When includeHidden is false, only show non-hidden codes
+    // When includeHidden is true, show all codes (hidden and non-hidden)
+    if (includeHidden !== true) {
+      whereClause.isHidden = false;
+    }
 
-    return NextResponse.json(codes);
+    const [codes, total] = await Promise.all([
+      db.purchaseCode.findMany({
+        where: whereClause,
+        include: {
+          course: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              phoneNumber: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        skip,
+        take,
+      }),
+      db.purchaseCode.count({
+        where: whereClause,
+      }),
+    ]);
+
+    return NextResponse.json({
+      codes,
+      total,
+      hasMore: skip + take < total,
+    });
   } catch (error) {
     console.error("[TEACHER_CODES_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });

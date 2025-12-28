@@ -84,7 +84,8 @@ const QuizResultsContent = () => {
             const response = await fetch(`/api/teacher/quiz-results?quizId=${quizId}`);
             if (response.ok) {
                 const data = await response.json();
-                setResults(data);
+                // Handle both old format (array) and new format (object with quizResults)
+                setResults(Array.isArray(data) ? data : (data.quizResults || []));
             } else {
                 toast.error("حدث خطأ أثناء تحميل النتائج");
             }

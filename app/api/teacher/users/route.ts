@@ -18,34 +18,49 @@ export async function GET(req: NextRequest) {
             return new NextResponse("Forbidden", { status: 403 });
         }
 
+        const { searchParams } = new URL(req.url);
+        const skip = parseInt(searchParams.get("skip") || "0");
+        const take = parseInt(searchParams.get("take") || "25");
+
         // Teachers can see all users (USER, TEACHER, and ADMIN roles)
-        const users = await db.user.findMany({
-            where: {
-                role: {
-                    in: ["USER", "TEACHER", "ADMIN"]
-                }
-            },
-            select: {
-                id: true,
-                fullName: true,
-                phoneNumber: true,
-                parentPhoneNumber: true,
-                role: true,
-                balance: true,
-                createdAt: true,
-                updatedAt: true,
-                _count: {
-                    select: {
-                        courses: true,
-                        purchases: true,
-                        userProgress: true
+        const [users, total] = await Promise.all([
+            db.user.findMany({
+                where: {
+                    role: {
+                        in: ["USER", "TEACHER", "ADMIN"]
+                    }
+                },
+                select: {
+                    id: true,
+                    fullName: true,
+                    phoneNumber: true,
+                    parentPhoneNumber: true,
+                    role: true,
+                    balance: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    _count: {
+                        select: {
+                            courses: true,
+                            purchases: true,
+                            userProgress: true
+                        }
+                    }
+                },
+                orderBy: {
+                    createdAt: "desc"
+                },
+                skip,
+                take
+            }),
+            db.user.count({
+                where: {
+                    role: {
+                        in: ["USER", "TEACHER", "ADMIN"]
                     }
                 }
-            },
-            orderBy: {
-                createdAt: "desc"
-            }
-        });
+            })
+        ]);
 
         console.log("[TEACHER_USERS_GET] Found users:", users.length);
         console.log("[TEACHER_USERS_GET] Users by role:", {
@@ -53,8 +68,12 @@ export async function GET(req: NextRequest) {
             TEACHER: users.filter(u => u.role === "TEACHER").length,
             ADMIN: users.filter(u => u.role === "ADMIN").length
         });
-        console.log("[TEACHER_USERS_GET] Admin users:", users.filter(u => u.role === "ADMIN"));
-        return NextResponse.json(users);
+
+        return NextResponse.json({
+            users,
+            total,
+            hasMore: skip + take < total
+        });
     } catch (error) {
         console.error("[TEACHER_USERS_GET]", error);
         return new NextResponse("Internal Error", { status: 500 });

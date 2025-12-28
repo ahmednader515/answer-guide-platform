@@ -23,39 +23,58 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const includeHidden = searchParams.get("includeHidden") === "true";
+    const skip = parseInt(searchParams.get("skip") || "0");
+    const take = parseInt(searchParams.get("take") || "25");
 
-    const codes = await db.purchaseCode.findMany({
-      where: {
-        ...(includeHidden !== true ? { isHidden: false } : {}),
-      },
-      include: {
-        course: {
-          select: {
-            id: true,
-            title: true,
+    const whereClause: any = {};
+    
+    // When includeHidden is false, only show non-hidden codes
+    // When includeHidden is true, show all codes (hidden and non-hidden)
+    if (includeHidden !== true) {
+      whereClause.isHidden = false;
+    }
+
+    const [codes, total] = await Promise.all([
+      db.purchaseCode.findMany({
+        where: whereClause,
+        include: {
+          course: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          creator: {
+            select: {
+              id: true,
+              fullName: true,
+              phoneNumber: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              phoneNumber: true,
+            },
           },
         },
-        creator: {
-          select: {
-            id: true,
-            fullName: true,
-            phoneNumber: true,
-          },
+        orderBy: {
+          createdAt: "desc",
         },
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            phoneNumber: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+        skip,
+        take,
+      }),
+      db.purchaseCode.count({
+        where: whereClause,
+      }),
+    ]);
+
+    return NextResponse.json({
+      codes,
+      total,
+      hasMore: skip + take < total,
     });
-
-    return NextResponse.json(codes);
   } catch (error) {
     console.error("[ADMIN_CODES_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });

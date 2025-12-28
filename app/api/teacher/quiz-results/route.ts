@@ -26,51 +26,65 @@ export async function GET(req: Request) {
             whereClause.quizId = quizId;
         }
 
+        const skip = parseInt(searchParams.get("skip") || "0");
+        const take = parseInt(searchParams.get("take") || "25");
+
         // Get quiz results for quizzes owned by the teacher
-        const quizResults = await db.quizResult.findMany({
-            where: whereClause,
-            include: {
-                user: {
-                    select: {
-                        fullName: true,
-                        phoneNumber: true
-                    }
-                },
-                quiz: {
-                    select: {
-                        title: true,
-                        course: {
-                            select: {
-                                id: true,
-                                title: true
-                            }
+        const [quizResults, total] = await Promise.all([
+            db.quizResult.findMany({
+                where: whereClause,
+                include: {
+                    user: {
+                        select: {
+                            fullName: true,
+                            phoneNumber: true
                         }
-                    }
-                },
-                answers: {
-                    include: {
-                        question: {
-                            select: {
-                                text: true,
-                                type: true,
-                                points: true,
-                                position: true
+                    },
+                    quiz: {
+                        select: {
+                            title: true,
+                            course: {
+                                select: {
+                                    id: true,
+                                    title: true
+                                }
                             }
                         }
                     },
-                    orderBy: {
-                        question: {
-                            position: 'asc'
+                    answers: {
+                        include: {
+                            question: {
+                                select: {
+                                    text: true,
+                                    type: true,
+                                    points: true,
+                                    position: true
+                                }
+                            }
+                        },
+                        orderBy: {
+                            question: {
+                                position: 'asc'
+                            }
                         }
                     }
-                }
-            },
-            orderBy: {
-                submittedAt: "desc"
-            }
-        });
+                },
+                orderBy: {
+                    submittedAt: "desc"
+                },
+                skip,
+                take
+            }),
+            db.quizResult.count({
+                where: whereClause
+            })
+        ]);
 
-        return NextResponse.json(quizResults);
+        return NextResponse.json({
+            quizResults,
+            total,
+            hasMore: skip + take < total
+        });
     } catch (error) {
         console.log("[TEACHER_QUIZ_RESULTS_GET]", error);
         return new NextResponse("Internal Error", { status: 500 });

@@ -67,6 +67,8 @@ const UsersPage = () => {
     const { t } = useLanguage();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [editData, setEditData] = useState<EditUserData>({
@@ -79,22 +81,38 @@ const UsersPage = () => {
     const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
-        fetchUsers();
+        fetchUsers(true);
     }, []);
 
-    const fetchUsers = async () => {
+    const fetchUsers = async (reset = false) => {
         try {
-            const response = await fetch("/api/admin/users");
+            if (reset) {
+                setLoading(true);
+            } else {
+                setLoadingMore(true);
+            }
+            const skip = reset ? 0 : users.length;
+            const response = await fetch(`/api/admin/users?skip=${skip}&take=25`);
             if (response.ok) {
                 const data = await response.json();
-                setUsers(data);
+                if (reset) {
+                    setUsers(data.users || []);
+                } else {
+                    setUsers(prev => [...prev, ...(data.users || [])]);
+                }
+                setHasMore(data.hasMore || false);
             }
         } catch (error) {
             console.error("Error fetching users:", error);
             toast.error(t("admin.users.loadError"));
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
+    };
+
+    const handleLoadMore = () => {
+        fetchUsers(false);
     };
 
     const handleEditUser = (user: User) => {
@@ -124,7 +142,7 @@ const UsersPage = () => {
                 toast.success(t("admin.users.errors.updateSuccess"));
                 setIsEditDialogOpen(false);
                 setEditingUser(null);
-                fetchUsers(); // Refresh the list
+                fetchUsers(true); // Refresh the list
             } else {
                 const error = await response.text();
                 toast.error(error || t("admin.users.errors.updateError"));
@@ -144,7 +162,7 @@ const UsersPage = () => {
 
             if (response.ok) {
                 toast.success(t("admin.users.errors.deleteSuccess"));
-                fetchUsers(); // Refresh the list
+                fetchUsers(true); // Refresh the list
             } else {
                 const error = await response.text();
                 toast.error(error || t("admin.users.errors.deleteError"));
@@ -357,6 +375,17 @@ const UsersPage = () => {
                                 ))}
                             </TableBody>
                         </Table>
+                        {hasMore && !searchTerm && (
+                            <div className="flex justify-center mt-4">
+                                <Button
+                                    variant="outline"
+                                    onClick={handleLoadMore}
+                                    disabled={loadingMore}
+                                >
+                                    {loadingMore ? t("common.loading") : t("common.showMore")}
+                                </Button>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             )}
@@ -541,6 +570,17 @@ const UsersPage = () => {
                                 ))}
                             </TableBody>
                         </Table>
+                        {hasMore && !searchTerm && (
+                            <div className="flex justify-center mt-4">
+                                <Button
+                                    variant="outline"
+                                    onClick={handleLoadMore}
+                                    disabled={loadingMore}
+                                >
+                                    {loadingMore ? t("common.loading") : t("common.showMore")}
+                                </Button>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             )}

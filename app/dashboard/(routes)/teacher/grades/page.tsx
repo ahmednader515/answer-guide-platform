@@ -71,6 +71,8 @@ const GradesPage = () => {
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCourse, setSelectedCourse] = useState<string>("");
     const [selectedQuiz, setSelectedQuiz] = useState<string>("");
@@ -80,7 +82,7 @@ const GradesPage = () => {
     useEffect(() => {
         fetchCourses();
         fetchQuizzes();
-        fetchQuizResults();
+        fetchQuizResults(true);
     }, []);
 
     const fetchCourses = async () => {
@@ -107,18 +109,34 @@ const GradesPage = () => {
         }
     };
 
-    const fetchQuizResults = async () => {
+    const fetchQuizResults = async (reset = false) => {
         try {
-            const response = await fetch("/api/teacher/quiz-results");
+            if (reset) {
+                setLoading(true);
+            } else {
+                setLoadingMore(true);
+            }
+            const skip = reset ? 0 : quizResults.length;
+            const response = await fetch(`/api/teacher/quiz-results?skip=${skip}&take=25`);
             if (response.ok) {
                 const data = await response.json();
-                setQuizResults(data);
+                if (reset) {
+                    setQuizResults(data.quizResults || []);
+                } else {
+                    setQuizResults(prev => [...prev, ...(data.quizResults || [])]);
+                }
+                setHasMore(data.hasMore || false);
             }
         } catch (error) {
             console.error("Error fetching quiz results:", error);
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
+    };
+
+    const handleLoadMore = () => {
+        fetchQuizResults(false);
     };
 
     const handleViewResult = (result: QuizResult) => {
@@ -344,6 +362,17 @@ const GradesPage = () => {
                             })}
                         </TableBody>
                     </Table>
+                    {hasMore && !searchTerm && !selectedCourse && !selectedQuiz && (
+                        <div className="flex justify-center mt-4">
+                            <Button
+                                variant="outline"
+                                onClick={handleLoadMore}
+                                disabled={loadingMore}
+                            >
+                                {loadingMore ? t("common.loading") : t("common.showMore")}
+                            </Button>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

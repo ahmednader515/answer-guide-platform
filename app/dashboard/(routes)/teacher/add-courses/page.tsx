@@ -43,8 +43,11 @@ const TeacherAddCoursesPage = () => {
     const [isAddingCourse, setIsAddingCourse] = useState(false);
     const [isDeletingCourse, setIsDeletingCourse] = useState(false);
 
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+
     useEffect(() => {
-        fetchUsers();
+        fetchUsers(true);
         fetchCourses();
     }, []);
 
@@ -68,20 +71,36 @@ const TeacherAddCoursesPage = () => {
         fetchOwned();
     }, [selectedUser]);
 
-    const fetchUsers = async () => {
+    const fetchUsers = async (reset = false) => {
         try {
-            const response = await fetch("/api/teacher/users");
+            if (reset) {
+                setLoading(true);
+            } else {
+                setLoadingMore(true);
+            }
+            const skip = reset ? 0 : users.length;
+            const response = await fetch(`/api/teacher/users?skip=${skip}&take=25`);
             if (response.ok) {
                 const data = await response.json();
                 // Filter only students
-                const studentUsers = data.filter((user: User) => user.role === "USER");
-                setUsers(studentUsers);
+                const studentUsers = (data.users || []).filter((user: User) => user.role === "USER");
+                if (reset) {
+                    setUsers(studentUsers);
+                } else {
+                    setUsers(prev => [...prev, ...studentUsers]);
+                }
+                setHasMore(data.hasMore || false);
             }
         } catch (error) {
             console.error("Error fetching users:", error);
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
+    };
+
+    const handleLoadMore = () => {
+        fetchUsers(false);
     };
 
     const fetchCourses = async () => {
@@ -119,7 +138,7 @@ const TeacherAddCoursesPage = () => {
                 setIsDialogOpen(false);
                 setSelectedUser(null);
                 setSelectedCourse("");
-                fetchUsers(); // Refresh the list
+                fetchUsers(true); // Refresh the list
             } else {
                 const error = await response.json();
                 toast.error(error.message || t("teacher.addCourses.errors.addError"));
@@ -150,7 +169,7 @@ const TeacherAddCoursesPage = () => {
                 setIsDialogOpen(false);
                 setSelectedCourse("");
                 setSelectedUser(null);
-                fetchUsers();
+                fetchUsers(true);
             } else {
                 const data = await res.json().catch(() => ({} as any));
                 toast.error((data as any).error || t("teacher.addCourses.errors.deleteError"));
@@ -253,10 +272,21 @@ const TeacherAddCoursesPage = () => {
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
+                                ))}
+                            </TableBody>
+                        </Table>
+                        {hasMore && !searchTerm && (
+                            <div className="flex justify-center mt-4">
+                                <Button
+                                    variant="outline"
+                                    onClick={handleLoadMore}
+                                    disabled={loadingMore}
+                                >
+                                    {loadingMore ? t("common.loading") : t("common.showMore")}
+                                </Button>
+                            </div>
+                        )}
+                    </CardContent>
             </Card>
 
             {filteredUsers.length === 0 && !loading && (
