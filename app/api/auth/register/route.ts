@@ -64,20 +64,52 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     // Create user directly without email verification
-    await db.user.create({
-      data: {
-        fullName,
-        phoneNumber,
-        parentPhoneNumber,
-        hashedPassword,
-        role: "USER",
-        grade,
-      },
-    });
+    try {
+      await db.user.create({
+        data: {
+          fullName,
+          phoneNumber,
+          parentPhoneNumber,
+          hashedPassword,
+          role: "USER",
+          grade,
+        },
+      });
+    } catch (createError: any) {
+      // Handle Prisma unique constraint violations
+      if (createError?.code === "P2002") {
+        const target = createError.meta?.target;
+        if (Array.isArray(target)) {
+          if (target.includes("phoneNumber")) {
+            return new NextResponse("Phone number already exists", { status: 400 });
+          }
+          if (target.includes("parentPhoneNumber")) {
+            return new NextResponse("Parent phone number already exists", { status: 400 });
+          }
+        }
+        return new NextResponse("A user with this information already exists", { status: 400 });
+      }
+      // Re-throw to be caught by outer catch block
+      throw createError;
+    }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[REGISTER]", error);
+    
+    // Handle Prisma unique constraint violations (in case the inner try-catch didn't catch it)
+    if (error?.code === "P2002") {
+      const target = error.meta?.target;
+      if (Array.isArray(target)) {
+        if (target.includes("phoneNumber")) {
+          return new NextResponse("Phone number already exists", { status: 400 });
+        }
+        if (target.includes("parentPhoneNumber")) {
+          return new NextResponse("Parent phone number already exists", { status: 400 });
+        }
+      }
+      return new NextResponse("A user with this information already exists", { status: 400 });
+    }
     
     // If the table doesn't exist or there's a database connection issue,
     // return a specific error message
@@ -87,6 +119,16 @@ export async function POST(req: Request) {
       error.message.includes("table")
     )) {
       return new NextResponse("Database not initialized. Please run database migrations.", { status: 503 });
+    }
+    
+    // Log full error for debugging
+    if (error instanceof Error) {
+      console.error("[REGISTER] Full error:", {
+        message: error.message,
+        code: (error as any).code,
+        meta: (error as any).meta,
+        stack: error.stack
+      });
     }
     
     return new NextResponse("Internal Error", { status: 500 });
