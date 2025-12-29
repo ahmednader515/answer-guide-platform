@@ -8,7 +8,13 @@ export async function GET() {
         isPublished: true,
       },
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            image: true,
+          }
+        },
         chapters: {
           where: {
             isPublished: true,
@@ -33,25 +39,35 @@ export async function GET() {
     });
 
     // Return courses with default progress of 0 for public view
-    const coursesWithDefaultProgress = courses.map(course => ({
-      ...course,
-      progress: 0
-    }));
+    // Filter out courses where user might be null (deleted users)
+    const coursesWithDefaultProgress = courses
+      .filter((course) => {
+        // Type guard to ensure user exists
+        return (course as any).user !== null && (course as any).user !== undefined;
+      })
+      .map((course: any) => ({
+        ...course,
+        progress: 0,
+        // Ensure dates are serializable
+        createdAt: course.createdAt.toISOString(),
+        updatedAt: course.updatedAt.toISOString(),
+      }));
 
     return NextResponse.json(coursesWithDefaultProgress);
   } catch (error) {
-    console.log("[COURSES_PUBLIC]", error);
+    console.error("[COURSES_PUBLIC] Error:", error);
     
-    // If the table doesn't exist or there's a database connection issue,
-    // return an empty array instead of an error
-    if (error instanceof Error && (
-      error.message.includes("does not exist") || 
-      error.message.includes("P2021") ||
-      error.message.includes("table")
-    )) {
-      return NextResponse.json([]);
+    // Log the full error for debugging
+    if (error instanceof Error) {
+      console.error("[COURSES_PUBLIC] Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
     }
     
-    return new NextResponse("Internal Error", { status: 500 });
+    // Return empty array on any error to prevent page breakage
+    // This is a public endpoint, so it's better to show no courses than an error
+    return NextResponse.json([]);
   }
 } 
