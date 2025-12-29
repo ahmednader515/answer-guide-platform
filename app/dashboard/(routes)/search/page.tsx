@@ -80,7 +80,9 @@ export default async function SearchPage({
     }
     // If user has no grade, don't filter by grade - show all courses (whereClause already set above)
 
-    const courses = await db.course.findMany({
+    // Only use cacheStrategy if using Prisma Accelerate (URL starts with prisma://)
+    const isAccelerate = process.env.DATABASE_URL?.startsWith("prisma://");
+    const queryOptions: any = {
         where: whereClause,
         include: {
             chapters: {
@@ -99,10 +101,15 @@ export default async function SearchPage({
         },
         orderBy: {
             createdAt: "desc",
-        }
-    ,
-        cacheStrategy: process.env.NODE_ENV === "production" ? { ttl: 60 } : undefined,
-    });
+        },
+    };
+
+    // Only add cacheStrategy if using Accelerate
+    if (isAccelerate && process.env.NODE_ENV === "production") {
+        queryOptions.cacheStrategy = { ttl: 60 };
+    }
+
+    const courses = await db.course.findMany(queryOptions);
 
     // Batch fetch all progress data to avoid N+1 queries
     const allChapterIds = courses.flatMap(course => course.chapters.map(ch => ch.id));

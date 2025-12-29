@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const courses = await db.course.findMany({
+    // Only use cacheStrategy if using Prisma Accelerate (URL starts with prisma://)
+    const isAccelerate = process.env.DATABASE_URL?.startsWith("prisma://");
+    const queryOptions: any = {
       where: {
         isPublished: true,
       },
@@ -35,8 +37,14 @@ export async function GET() {
       orderBy: {
         createdAt: "desc",
       },
-      cacheStrategy: process.env.NODE_ENV === "production" ? { ttl: 120 } : undefined,
-    });
+    };
+
+    // Only add cacheStrategy if using Accelerate
+    if (isAccelerate && process.env.NODE_ENV === "production") {
+      queryOptions.cacheStrategy = { ttl: 120 };
+    }
+
+    const courses = await db.course.findMany(queryOptions);
 
     // Return courses with default progress of 0 for public view
     // Filter out courses where user might be null (deleted users)
