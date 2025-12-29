@@ -44,11 +44,16 @@ const CoursesPage = async () => {
     return redirect(dashboardUrl);
   }
 
-  // Get user's current balance
+  // Get user's current balance and verify user exists
   const user = await db.user.findUnique({
     where: { id: session.user.id },
     select: { balance: true }
   });
+
+  // If user doesn't exist in database, automatically logout
+  if (!user) {
+    redirect("/api/auth/signout?callbackUrl=/sign-in");
+  }
 
   // Get last watched chapter
   const lastWatchedChapter = await db.userProgress.findFirst({
