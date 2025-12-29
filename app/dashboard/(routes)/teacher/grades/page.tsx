@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Search, Eye, Award, TrendingUp, Users, FileText } from "lucide-react";
+import { Search, Eye, Award, TrendingUp, Users, FileText, X } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { useLanguage } from "@/lib/contexts/language-context";
@@ -82,8 +82,23 @@ const GradesPage = () => {
     useEffect(() => {
         fetchCourses();
         fetchQuizzes();
+    }, []);
+
+    // Initial load (without search)
+    useEffect(() => {
         fetchQuizResults(true);
     }, []);
+
+    // Handler for search submit
+    const handleSearch = () => {
+        fetchQuizResults(true);
+    };
+
+    // Handler to clear search
+    const handleClearSearch = () => {
+        setSearchTerm("");
+        fetchQuizResults(true);
+    };
 
     const fetchCourses = async () => {
         try {
@@ -116,16 +131,25 @@ const GradesPage = () => {
             } else {
                 setLoadingMore(true);
             }
-            const skip = reset ? 0 : quizResults.length;
-            const response = await fetch(`/api/teacher/quiz-results?skip=${skip}&take=25`);
+            
+            const isSearching = searchTerm.trim().length > 0;
+            // When searching, load all results (no pagination). When not searching, use pagination.
+            const skip = isSearching ? 0 : (reset ? 0 : quizResults.length);
+            const take = isSearching ? 10000 : 25; // Large limit for search to get all results
+            const searchParam = searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : "";
+            
+            const response = await fetch(`/api/teacher/quiz-results?skip=${skip}&take=${take}${searchParam}`);
             if (response.ok) {
                 const data = await response.json();
-                if (reset) {
+                if (reset || isSearching) {
+                    // When resetting or searching, replace all results
                     setQuizResults(data.quizResults || []);
                 } else {
+                    // When loading more (not searching), append results
                     setQuizResults(prev => [...prev, ...(data.quizResults || [])]);
                 }
-                setHasMore(data.hasMore || false);
+                // When searching, there's no "more" to load. When not searching, check hasMore.
+                setHasMore(isSearching ? false : (data.hasMore || false));
             }
         } catch (error) {
             console.error("Error fetching quiz results:", error);
@@ -144,16 +168,12 @@ const GradesPage = () => {
         setIsDialogOpen(true);
     };
 
+    // Server handles search, only filter by course and quiz client-side
     const filteredResults = quizResults.filter(result => {
-        const matchesSearch = 
-            result.user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            result.quiz.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            result.quiz.course.title.toLowerCase().includes(searchTerm.toLowerCase());
-        
         const matchesCourse = !selectedCourse || selectedCourse === "all" || result.quiz.course.id === selectedCourse;
         const matchesQuiz = !selectedQuiz || selectedQuiz === "all" || result.quizId === selectedQuiz;
         
-        return matchesSearch && matchesCourse && matchesQuiz;
+        return matchesCourse && matchesQuiz;
     });
 
     const getGradeColor = (percentage: number) => {
@@ -261,7 +281,28 @@ const GradesPage = () => {
                                     placeholder={t("teacher.grades.filters.searchPlaceholder")}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            handleSearch();
+                                        }
+                                    }}
                                 />
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleSearch}
+                                >
+                                    <Search className="h-4 w-4" />
+                                </Button>
+                                {searchTerm && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleClearSearch}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                )}
                             </div>
                         </div>
                         <div className="space-y-2">

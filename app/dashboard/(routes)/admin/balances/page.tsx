@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Edit, Search, Wallet } from "lucide-react";
+import { Edit, Search, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/contexts/language-context";
 
@@ -31,9 +31,21 @@ const BalancesPage = () => {
     const [newBalance, setNewBalance] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+    // Initial load (without search)
     useEffect(() => {
         fetchUsers(true);
     }, []);
+
+    // Handler for search submit
+    const handleSearch = () => {
+        fetchUsers(true);
+    };
+
+    // Handler to clear search
+    const handleClearSearch = () => {
+        setSearchTerm("");
+        fetchUsers(true);
+    };
 
     const fetchUsers = async (reset = false) => {
         try {
@@ -42,16 +54,25 @@ const BalancesPage = () => {
             } else {
                 setLoadingMore(true);
             }
-            const skip = reset ? 0 : users.length;
-            const response = await fetch(`/api/admin/users?skip=${skip}&take=25`);
+            
+            const isSearching = searchTerm.trim().length > 0;
+            // When searching, load all results (no pagination). When not searching, use pagination.
+            const skip = isSearching ? 0 : (reset ? 0 : users.length);
+            const take = isSearching ? 10000 : 25; // Large limit for search to get all results
+            const searchParam = searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : "";
+            
+            const response = await fetch(`/api/admin/users?skip=${skip}&take=${take}${searchParam}`);
             if (response.ok) {
                 const data = await response.json();
-                if (reset) {
+                if (reset || isSearching) {
+                    // When resetting or searching, replace all users
                     setUsers(data.users || []);
                 } else {
+                    // When loading more (not searching), append users
                     setUsers(prev => [...prev, ...(data.users || [])]);
                 }
-                setHasMore(data.hasMore || false);
+                // When searching, there's no "more" to load. When not searching, check hasMore.
+                setHasMore(isSearching ? false : (data.hasMore || false));
             }
         } catch (error) {
             console.error("Error fetching users:", error);
@@ -101,12 +122,8 @@ const BalancesPage = () => {
         }
     };
 
-    const filteredUsers = users.filter(user =>
-        user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phoneNumber.includes(searchTerm)
-    );
-
-    const studentUsers = filteredUsers.filter(user => user.role === "USER");
+    // No client-side filtering - server handles search
+    const studentUsers = users.filter(user => user.role === "USER");
 
     if (loading) {
         return (
@@ -135,8 +152,29 @@ const BalancesPage = () => {
                                 placeholder={t("admin.balances.searchPlaceholder")}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        handleSearch();
+                                    }
+                                }}
                                 className="max-w-sm"
                             />
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleSearch}
+                            >
+                                <Search className="h-4 w-4" />
+                            </Button>
+                            {searchTerm && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleClearSearch}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            )}
                         </div>
                     </CardHeader>
                     <CardContent>

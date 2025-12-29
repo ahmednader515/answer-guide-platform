@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, ArrowLeft, Eye, Download, Filter } from "lucide-react";
+import { Search, ArrowLeft, Eye, Download, Filter, X } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -57,7 +57,6 @@ const QuizResultsContent = () => {
 
     useEffect(() => {
         if (quizId) {
-            fetchQuizResults();
             fetchQuizDetails();
         } else {
             toast.error("لم يتم تحديد الاختبار");
@@ -65,27 +64,43 @@ const QuizResultsContent = () => {
         }
     }, [quizId]);
 
+    // Initial load when quizId is available
     useEffect(() => {
-        // Filter results based on search term
-        let filtered = results;
-        
-        if (searchTerm) {
-            filtered = filtered.filter(result =>
-                result.user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                result.user.phoneNumber.includes(searchTerm)
-            );
+        if (quizId) {
+            fetchQuizResults();
         }
-        
-        setFilteredResults(filtered);
-    }, [results, searchTerm]);
+    }, [quizId]);
+
+    // Handler for search submit
+    const handleSearch = () => {
+        if (quizId) {
+            fetchQuizResults();
+        }
+    };
+
+    // Handler to clear search
+    const handleClearSearch = () => {
+        setSearchTerm("");
+        if (quizId) {
+            fetchQuizResults();
+        }
+    };
 
     const fetchQuizResults = async () => {
         try {
-            const response = await fetch(`/api/teacher/quiz-results?quizId=${quizId}`);
+            setLoading(true);
+            const isSearching = searchTerm.trim().length > 0;
+            // When searching, load all results (no pagination). When not searching, use pagination.
+            const skip = 0;
+            const take = isSearching ? 10000 : 25; // Large limit for search to get all results
+            const searchParam = searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : "";
+            const response = await fetch(`/api/teacher/quiz-results?quizId=${quizId}&skip=${skip}&take=${take}${searchParam}`);
             if (response.ok) {
                 const data = await response.json();
                 // Handle both old format (array) and new format (object with quizResults)
-                setResults(Array.isArray(data) ? data : (data.quizResults || []));
+                const fetchedResults = Array.isArray(data) ? data : (data.quizResults || []);
+                setResults(fetchedResults);
+                setFilteredResults(fetchedResults);
             } else {
                 toast.error("حدث خطأ أثناء تحميل النتائج");
             }
@@ -255,8 +270,29 @@ const QuizResultsContent = () => {
                             placeholder="البحث في الطلاب..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    handleSearch();
+                                }
+                            }}
                             className="max-w-sm"
                         />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleSearch}
+                        >
+                            <Search className="h-4 w-4" />
+                        </Button>
+                        {searchTerm && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleClearSearch}
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent>

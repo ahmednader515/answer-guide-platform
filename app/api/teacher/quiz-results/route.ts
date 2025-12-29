@@ -13,7 +13,10 @@ export async function GET(req: Request) {
         }
 
         // Build the where clause
-        const whereClause: any = {
+        const search = searchParams.get("search") || "";
+        
+        // Base condition - teacher's courses
+        const baseCondition = {
             quiz: {
                 course: {
                     userId: userId
@@ -21,10 +24,59 @@ export async function GET(req: Request) {
             }
         };
 
+        // Build AND conditions array
+        const andConditions: any[] = [baseCondition];
+
         // Add quizId filter if provided
         if (quizId) {
-            whereClause.quizId = quizId;
+            andConditions.push({ quizId });
         }
+
+        // Add search filter if provided
+        if (search.trim()) {
+            andConditions.push({
+                OR: [
+                    {
+                        user: {
+                            fullName: {
+                                contains: search,
+                                mode: "insensitive"
+                            }
+                        }
+                    },
+                    {
+                        user: {
+                            phoneNumber: {
+                                contains: search
+                            }
+                        }
+                    },
+                    {
+                        quiz: {
+                            title: {
+                                contains: search,
+                                mode: "insensitive"
+                            }
+                        }
+                    },
+                    {
+                        quiz: {
+                            course: {
+                                title: {
+                                    contains: search,
+                                    mode: "insensitive"
+                                }
+                            }
+                        }
+                    }
+                ]
+            });
+        }
+
+        // If we have multiple conditions, use AND; otherwise use base condition
+        const whereClause = andConditions.length > 1 
+            ? { AND: andConditions }
+            : baseCondition;
 
         const skip = parseInt(searchParams.get("skip") || "0");
         const take = parseInt(searchParams.get("take") || "25");

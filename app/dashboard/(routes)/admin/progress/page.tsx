@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { Search, Eye, BookOpen, CheckCircle, Clock } from "lucide-react";
+import { Search, Eye, BookOpen, CheckCircle, Clock, X } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { useLanguage } from "@/lib/contexts/language-context";
@@ -73,9 +73,21 @@ const ProgressPage = () => {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [loadingProgress, setLoadingProgress] = useState(false);
 
+    // Initial load (without search)
     useEffect(() => {
         fetchUsers(true);
     }, []);
+
+    // Handler for search submit
+    const handleSearch = () => {
+        fetchUsers(true);
+    };
+
+    // Handler to clear search
+    const handleClearSearch = () => {
+        setSearchTerm("");
+        fetchUsers(true);
+    };
 
     const fetchUsers = async (reset = false) => {
         try {
@@ -84,18 +96,27 @@ const ProgressPage = () => {
             } else {
                 setLoadingMore(true);
             }
-            const skip = reset ? 0 : users.length;
-            const response = await fetch(`/api/admin/users?skip=${skip}&take=25`);
+            
+            const isSearching = searchTerm.trim().length > 0;
+            // When searching, load all results (no pagination). When not searching, use pagination.
+            const skip = isSearching ? 0 : (reset ? 0 : users.length);
+            const take = isSearching ? 10000 : 25; // Large limit for search to get all results
+            const searchParam = searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : "";
+            
+            const response = await fetch(`/api/admin/users?skip=${skip}&take=${take}${searchParam}`);
             if (response.ok) {
                 const data = await response.json();
                 // Handle both old format (array) and new format (object with users)
                 const fetchedUsers = Array.isArray(data) ? data : (data.users || []);
-                if (reset) {
+                if (reset || isSearching) {
+                    // When resetting or searching, replace all users
                     setUsers(fetchedUsers);
                 } else {
+                    // When loading more (not searching), append users
                     setUsers(prev => [...prev, ...fetchedUsers]);
                 }
-                setHasMore(data.hasMore || false);
+                // When searching, there's no "more" to load. When not searching, check hasMore.
+                setHasMore(isSearching ? false : (data.hasMore || false));
             }
         } catch (error) {
             console.error("Error fetching users:", error);
@@ -132,12 +153,8 @@ const ProgressPage = () => {
         setIsDialogOpen(true);
     };
 
-    const filteredUsers = users.filter(user =>
-        user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phoneNumber.includes(searchTerm)
-    );
-
-    const studentUsers = filteredUsers.filter(user => user.role === "USER");
+    // No client-side filtering - server handles search
+    const studentUsers = users.filter(user => user.role === "USER");
 
     const completedProgress = userProgress.filter(p => p.isCompleted).length;
     const inProgressChapters = userProgress.filter(p => !p.isCompleted).length;
@@ -166,12 +183,33 @@ const ProgressPage = () => {
                     <CardTitle>{t("admin.progress.studentsTitle")}</CardTitle>
                     <div className="flex items-center space-x-2">
                         <Search className="h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder={t("admin.progress.searchPlaceholder")}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="max-w-sm"
-                        />
+                            <Input
+                                placeholder={t("admin.progress.searchPlaceholder")}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        handleSearch();
+                                    }
+                                }}
+                                className="max-w-sm"
+                            />
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleSearch}
+                            >
+                                <Search className="h-4 w-4" />
+                            </Button>
+                            {searchTerm && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleClearSearch}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            )}
                     </div>
                 </CardHeader>
                 <CardContent>
