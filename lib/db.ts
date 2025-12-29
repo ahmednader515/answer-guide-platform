@@ -1,43 +1,65 @@
 import { PrismaClient } from "@prisma/client";
 import { withAccelerate } from "@prisma/extension-accelerate";
 
-// Validate DATABASE_URL
+// Use DATABASE_URL by default (direct connection - more reliable)
+// Only use PRISMA_ACCELERATE_URL if ENABLE_PRISMA_ACCELERATE is set to "true"
 const databaseUrl = process.env.DATABASE_URL;
+const accelerateUrl = process.env.PRISMA_ACCELERATE_URL;
+const enableAccelerate = process.env.ENABLE_PRISMA_ACCELERATE === "true";
+
 if (!databaseUrl) {
   throw new Error(
     "DATABASE_URL environment variable is not set. Please check your .env file."
   );
 }
 
-// Validate that DATABASE_URL is a valid PostgreSQL connection string
-if (!databaseUrl.startsWith("postgresql://") && !databaseUrl.startsWith("postgres://")) {
+// Normalize prisma+postgres:// to prisma:// (Prisma Accelerate format)
+let normalizedAccelerateUrl = accelerateUrl;
+if (normalizedAccelerateUrl?.startsWith("prisma+postgres://")) {
+  normalizedAccelerateUrl = normalizedAccelerateUrl.replace("prisma+postgres://", "prisma://");
+}
+
+// Determine which URL to use - default to direct connection unless Accelerate is explicitly enabled
+const useAccelerate = enableAccelerate && normalizedAccelerateUrl?.startsWith("prisma://");
+const finalDatabaseUrl = useAccelerate ? normalizedAccelerateUrl! : databaseUrl;
+
+// Validate that finalDatabaseUrl is a valid connection string
+if (
+  !finalDatabaseUrl.startsWith("postgresql://") && 
+  !finalDatabaseUrl.startsWith("postgres://") && 
+  !finalDatabaseUrl.startsWith("prisma://")
+) {
   throw new Error(
-    `Invalid DATABASE_URL format. Expected postgresql:// or postgres://, got: ${databaseUrl.substring(0, 50)}...`
+    `Invalid database URL format. Expected postgresql://, postgres://, prisma://, or prisma+postgres://, got: ${finalDatabaseUrl.substring(0, 50)}...`
   );
 }
 
-// Check if it's a Prisma Accelerate URL (starts with prisma://)
-const isAccelerateUrl = databaseUrl.startsWith("prisma://");
-
 const createPrismaClient = () => {
+  // Use direct PostgreSQL connection by default (more reliable)
   const client = new PrismaClient({
     datasources: {
-      db: { url: databaseUrl },
+      db: { url: finalDatabaseUrl },
     },
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
-  // Only use Accelerate extension if we have a proper Prisma Accelerate URL
-  // Regular PostgreSQL URLs should NOT use Accelerate
-  if (isAccelerateUrl) {
+  // Use Accelerate extension only if explicitly enabled
+  if (useAccelerate && finalDatabaseUrl.startsWith("prisma://")) {
     try {
       return client.$extends(withAccelerate());
     } catch (error) {
-      console.warn("Failed to initialize Prisma Accelerate, using direct connection:", error);
-      return client;
+      console.warn("⚠️  Failed to initialize Prisma Accelerate extension, falling back to direct connection");
+      // Fall back to direct connection if Accelerate fails
+      return new PrismaClient({
+        datasources: {
+          db: { url: databaseUrl },
+        },
+        log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+      });
     }
   }
   
+  // Use direct PostgreSQL connection (default)
   return client;
 };
 
