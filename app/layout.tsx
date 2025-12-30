@@ -26,7 +26,7 @@ const playpenSansArabic = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Answer Guide Platform",
+  title: "Answer Guide Platform (test)",
   description: "منصة تعليمية متكاملة",
 };
 
