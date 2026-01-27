@@ -1,15 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import { withAccelerate } from "@prisma/extension-accelerate";
 
-// Use DATABASE_URL by default (direct connection - more reliable)
-// Only use PRISMA_ACCELERATE_URL if ENABLE_PRISMA_ACCELERATE is set to "true"
+// Use PRISMA_ACCELERATE_URL if available (recommended for serverless), otherwise fall back to DATABASE_URL
 const databaseUrl = process.env.DATABASE_URL;
 const accelerateUrl = process.env.PRISMA_ACCELERATE_URL;
-const enableAccelerate = process.env.ENABLE_PRISMA_ACCELERATE === "true";
 
-if (!databaseUrl) {
+if (!databaseUrl && !accelerateUrl) {
   throw new Error(
-    "DATABASE_URL environment variable is not set. Please check your .env file."
+    "Either DATABASE_URL or PRISMA_ACCELERATE_URL environment variable must be set. Please check your .env file."
   );
 }
 
@@ -19,9 +17,10 @@ if (normalizedAccelerateUrl?.startsWith("prisma+postgres://")) {
   normalizedAccelerateUrl = normalizedAccelerateUrl.replace("prisma+postgres://", "prisma://");
 }
 
-// Determine which URL to use - default to direct connection unless Accelerate is explicitly enabled
-const useAccelerate = enableAccelerate && normalizedAccelerateUrl?.startsWith("prisma://");
-const finalDatabaseUrl = useAccelerate ? normalizedAccelerateUrl! : databaseUrl;
+// Prefer Prisma Accelerate if available (better for serverless environments like Vercel)
+// Only use direct connection if Accelerate URL is not provided
+const useAccelerate = !!normalizedAccelerateUrl && normalizedAccelerateUrl.startsWith("prisma://");
+const finalDatabaseUrl = useAccelerate ? normalizedAccelerateUrl! : databaseUrl!;
 
 // Validate that finalDatabaseUrl is a valid connection string
 if (
@@ -35,7 +34,6 @@ if (
 }
 
 const createPrismaClient = () => {
-  // Use direct PostgreSQL connection by default (more reliable)
   const client = new PrismaClient({
     datasources: {
       db: { url: finalDatabaseUrl },
@@ -43,13 +41,16 @@ const createPrismaClient = () => {
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
-  // Use Accelerate extension only if explicitly enabled
+  // Use Accelerate extension if using Prisma Accelerate URL
   if (useAccelerate && finalDatabaseUrl.startsWith("prisma://")) {
     try {
       return client.$extends(withAccelerate());
     } catch (error) {
       console.warn("⚠️  Failed to initialize Prisma Accelerate extension, falling back to direct connection");
       // Fall back to direct connection if Accelerate fails
+      if (!databaseUrl) {
+        throw new Error("Prisma Accelerate failed and no DATABASE_URL fallback is available");
+      }
       return new PrismaClient({
         datasources: {
           db: { url: databaseUrl },
@@ -59,7 +60,7 @@ const createPrismaClient = () => {
     }
   }
   
-  // Use direct PostgreSQL connection (default)
+  // Use direct PostgreSQL connection
   return client;
 };
 
@@ -68,8 +69,18 @@ declare global {
   var prisma: ReturnType<typeof createPrismaClient> | undefined;
 }
 
+// Singleton pattern - CRITICAL for serverless environments like Vercel
+// This prevents connection pool exhaustion by reusing the same PrismaClient instance
 export const db = globalThis.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
+// Always use singleton pattern, even in production (essential for serverless)
+if (!globalThis.prisma) {
   globalThis.prisma = db;
+}
+
+// Graceful shutdown handling
+if (typeof process !== 'undefined') {
+  process.on('beforeExit', async () => {
+    await db.$disconnect();
+  });
 }
