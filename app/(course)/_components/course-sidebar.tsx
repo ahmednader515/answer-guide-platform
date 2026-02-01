@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, use } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { CheckCircle, Circle } from "lucide-react";
+import { CheckCircle, Circle, Lock } from "lucide-react";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/contexts/language-context";
@@ -34,6 +34,7 @@ interface CourseContent {
   position: number;
   type: 'chapter' | 'quiz';
   isFree?: boolean;
+  hasAccess?: boolean;
   userProgress?: {
     isCompleted: boolean;
   }[];
@@ -105,6 +106,7 @@ export const CourseSidebar = ({ course }: CourseSidebarProps) => {
     const courseId = course?.id || params.courseId;
     if (courseId) {
       setSelectedContentId(content.id);
+      // Allow navigation even to locked chapters so students can see why it's locked
       if (content.type === 'chapter') {
         router.push(`/courses/${courseId}/chapters/${content.id}`);
       } else if (content.type === 'quiz') {
@@ -151,25 +153,34 @@ export const CourseSidebar = ({ course }: CourseSidebarProps) => {
           const isCompleted = content.type === 'chapter' 
             ? content.userProgress?.[0]?.isCompleted || false
             : content.quizResults && content.quizResults.length > 0;
+          const isLocked = content.type === 'chapter' && !content.isFree && !content.hasAccess;
           
           return (
             <div
               key={content.id}
               className={cn(
-                "flex items-center gap-x-2 text-sm font-[500] rtl:pr-4 ltr:pl-4 py-4 transition cursor-pointer",
+                "flex items-center gap-x-2 text-sm font-[500] rtl:pr-4 ltr:pl-4 py-4 transition",
+                "cursor-pointer",
                 isSelected 
                   ? "bg-slate-200 text-slate-900"
+                  : isLocked
+                  ? "text-slate-400 hover:bg-slate-300/20"
                   : "text-slate-500 hover:bg-slate-300/20 hover:text-slate-600",
-                isCompleted && !isSelected && "text-emerald-600"
+                isCompleted && !isSelected && !isLocked && "text-emerald-600"
               )}
               onClick={() => onClick(content)}
             >
-              {isCompleted ? (
+              {isLocked ? (
+                <Lock className="h-4 w-4 text-slate-400" />
+              ) : isCompleted ? (
                 <CheckCircle className="h-4 w-4 text-emerald-600" />
               ) : (
                 <Circle className="h-4 w-4" />
               )}
-              <span className="rtl:text-right ltr:text-left flex-grow mr-1">
+              <span className={cn(
+                "rtl:text-right ltr:text-left flex-grow mr-1",
+                isLocked && "text-slate-400"
+              )}>
                 {content.title}
                 {content.type === 'quiz' && (
                   <span className="ml-2 text-xs text-green-600">({t("course.quiz")})</span>

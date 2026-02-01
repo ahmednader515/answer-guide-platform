@@ -516,7 +516,7 @@
     "codes": {
       "title": "Code Management",
       "createNew": "Create New Codes",
-      "searchPlaceholder": "Search by code or course name...",
+      "searchPlaceholder": "Search by code, course name, or student name...",
       "filterByCourse": "Filter by Course:",
       "allCourses": "All Courses",
       "stats": {
@@ -529,6 +529,7 @@
         "course": "Course",
         "status": "Status",
         "user": "User",
+        "grade": "Grade",
         "usedAt": "Used At",
         "createdAt": "Created At",
         "actions": "Actions"
@@ -643,6 +644,16 @@
         "addError": "An error occurred while adding the course",
         "deleteSuccess": "Course deleted from student successfully",
         "deleteError": "An error occurred while deleting the course"
+      },
+      "chapters": {
+        "title": "Chapters",
+        "empty": "No chapters available",
+        "add": "Add Access",
+        "remove": "Remove Access",
+        "addSuccess": "Chapter access added successfully",
+        "addError": "An error occurred while adding chapter access",
+        "removeSuccess": "Chapter access removed successfully",
+        "removeError": "An error occurred while removing chapter access"
       },
       "empty": "No students available"
     },
@@ -940,6 +951,16 @@
         "deleteSuccess": "Course deleted from student successfully",
         "deleteError": "An error occurred while deleting course"
       },
+      "chapters": {
+        "title": "Chapters",
+        "empty": "No chapters available",
+        "add": "Add Access",
+        "remove": "Remove Access",
+        "addSuccess": "Chapter access added successfully",
+        "addError": "An error occurred while adding chapter access",
+        "removeSuccess": "Chapter access removed successfully",
+        "removeError": "An error occurred while removing chapter access"
+      },
       "empty": "No students available"
     },
     "quizzes": {
@@ -986,7 +1007,7 @@
       "title": "Code Management",
       "createNew": "Create New Codes",
       "codesList": "Codes List",
-      "searchPlaceholder": "Search by code, course name, or creator...",
+      "searchPlaceholder": "Search by code, course name, creator, or student name...",
       "filterByCourse": "Filter by Course:",
       "allCourses": "All Courses",
       "statistics": {
@@ -1000,6 +1021,7 @@
         "creator": "Creator",
         "status": "Status",
         "user": "User",
+        "grade": "Grade",
         "usedAt": "Used At",
         "createdAt": "Created At",
         "actions": "Actions"

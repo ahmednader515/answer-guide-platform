@@ -43,6 +43,7 @@ const ChapterPage = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [courseProgress, setCourseProgress] = useState(0);
   const [hasAccess, setHasAccess] = useState(false);
+  const [lockReason, setLockReason] = useState<string | null>(null);
 
   console.log("🔍 ChapterPage render:", {
     chapterId: routeParams.chapterId,
@@ -144,7 +145,7 @@ const ChapterPage = () => {
         const [chapterResponse, progressResponse, accessResponse] = await Promise.all([
           axios.get(`/api/courses/${routeParams.courseId}/chapters/${routeParams.chapterId}`),
           axios.get(`/api/courses/${routeParams.courseId}/progress`),
-          axios.get(`/api/courses/${routeParams.courseId}/access`)
+          axios.get(`/api/courses/${routeParams.courseId}/chapters/${routeParams.chapterId}/access`)
         ]);
         
         console.log("🔍 ChapterPage data fetched:", {
@@ -157,6 +158,7 @@ const ChapterPage = () => {
         setIsCompleted(chapterResponse.data.userProgress?.[0]?.isCompleted || false);
         setCourseProgress(progressResponse.data.progress);
         setHasAccess(accessResponse.data.hasAccess);
+        setLockReason(accessResponse.data.reason || null);
       } catch (error) {
         const axiosError = error as AxiosError;
         console.error("🔍 Error fetching data:", axiosError);
@@ -244,15 +246,32 @@ const ChapterPage = () => {
   }
 
   if (!hasAccess && !chapter.isFree) {
+    // Determine the lock reason message
+    let lockTitle = "هذا الفصل مغلق";
+    let lockMessage = "شراء الكورس للوصول إلى جميع الفصول";
+    let showPurchaseButton = true;
+    
+    if (lockReason === "chapter_not_granted") {
+      lockTitle = "هذا الفصل غير متاح لك";
+      lockMessage = "لم يتم منحك الوصول إلى هذا الفصل. يرجى التواصل مع المعلم أو المسؤول للحصول على الوصول.";
+      showPurchaseButton = false;
+    } else if (lockReason === "course_not_purchased") {
+      lockTitle = "هذا الفصل مغلق";
+      lockMessage = "شراء الكورس للوصول إلى جميع الفصول";
+      showPurchaseButton = true;
+    }
+
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Lock className="h-8 w-8 mx-auto text-muted-foreground" />
-          <h2 className="text-2xl font-semibold">هذا الفصل مغلق</h2>
-          <p className="text-muted-foreground">شراء الكورس للوصول إلى جميع الفصول</p>
-          <Button onClick={() => router.push(`/courses/${routeParams.courseId}/purchase`)}>
-            شراء الكورس
-          </Button>
+        <div className="text-center space-y-4 max-w-md px-4">
+          <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
+          <h2 className="text-2xl font-semibold">{lockTitle}</h2>
+          <p className="text-muted-foreground">{lockMessage}</p>
+          {showPurchaseButton && (
+            <Button onClick={() => router.push(`/courses/${routeParams.courseId}/purchase`)}>
+              شراء الكورس
+            </Button>
+          )}
         </div>
       </div>
     );

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, BookOpen, User, Plus, X } from "lucide-react";
+import { Search, BookOpen, User, Plus, X, Lock, Unlock, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/contexts/language-context";
 
@@ -29,6 +29,14 @@ interface Course {
     isPublished: boolean;
 }
 
+interface Chapter {
+    id: string;
+    title: string;
+    position: number;
+    isPublished: boolean;
+    isFree: boolean;
+}
+
 const AddCoursesPage = () => {
     const { t } = useLanguage();
     const [users, setUsers] = useState<User[]>([]);
@@ -44,6 +52,10 @@ const AddCoursesPage = () => {
     const [dialogMode, setDialogMode] = useState<"add" | "delete">("add");
     const [isAddingCourse, setIsAddingCourse] = useState(false);
     const [isDeletingCourse, setIsDeletingCourse] = useState(false);
+    const [chapters, setChapters] = useState<Chapter[]>([]);
+    const [chapterAccesses, setChapterAccesses] = useState<Set<string>>(new Set());
+    const [loadingChapters, setLoadingChapters] = useState(false);
+    const [processingChapters, setProcessingChapters] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         fetchCourses();
@@ -84,6 +96,39 @@ const AddCoursesPage = () => {
         };
         fetchOwned();
     }, [selectedUser]);
+
+    // Fetch chapters when course is selected
+    useEffect(() => {
+        const fetchChapters = async () => {
+            if (!selectedCourse) {
+                setChapters([]);
+                setChapterAccesses(new Set());
+                return;
+            }
+            setLoadingChapters(true);
+            try {
+                const [chaptersRes, accessesRes] = await Promise.all([
+                    fetch(`/api/courses/${selectedCourse}/chapters`),
+                    selectedUser ? fetch(`/api/admin/users/${selectedUser.id}/chapter-accesses?courseId=${selectedCourse}`) : Promise.resolve(null)
+                ]);
+                
+                if (chaptersRes.ok) {
+                    const chaptersData = await chaptersRes.json();
+                    setChapters(chaptersData.filter((ch: Chapter) => ch.isPublished));
+                }
+                
+                if (accessesRes && accessesRes.ok) {
+                    const accessesData = await accessesRes.json();
+                    setChapterAccesses(new Set(accessesData.map((a: { chapterId: string }) => a.chapterId)));
+                }
+            } catch (e) {
+                console.error("Error fetching chapters", e);
+            } finally {
+                setLoadingChapters(false);
+            }
+        };
+        fetchChapters();
+    }, [selectedCourse, selectedUser]);
 
     const fetchUsers = async (reset = false) => {
         try {
@@ -201,6 +246,70 @@ const AddCoursesPage = () => {
             toast.error(t("admin.addCourses.errors.deleteError"));
         } finally {
             setIsDeletingCourse(false);
+        }
+    };
+
+    const handleAddChapter = async (chapterId: string) => {
+        if (!selectedUser) return;
+        
+        setProcessingChapters(prev => new Set(prev).add(chapterId));
+        try {
+            const response = await fetch(`/api/admin/users/${selectedUser.id}/add-chapter`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chapterId })
+            });
+            
+            if (response.ok) {
+                toast.success(t("admin.addCourses.chapters.addSuccess"));
+                setChapterAccesses(prev => new Set(prev).add(chapterId));
+            } else {
+                const error = await response.json();
+                toast.error(error.error || t("admin.addCourses.chapters.addError"));
+            }
+        } catch (error) {
+            console.error("Error adding chapter:", error);
+            toast.error(t("admin.addCourses.chapters.addError"));
+        } finally {
+            setProcessingChapters(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(chapterId);
+                return newSet;
+            });
+        }
+    };
+
+    const handleRemoveChapter = async (chapterId: string) => {
+        if (!selectedUser) return;
+        
+        setProcessingChapters(prev => new Set(prev).add(chapterId));
+        try {
+            const response = await fetch(`/api/admin/users/${selectedUser.id}/add-chapter`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chapterId })
+            });
+            
+            if (response.ok) {
+                toast.success(t("admin.addCourses.chapters.removeSuccess"));
+                setChapterAccesses(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(chapterId);
+                    return newSet;
+                });
+            } else {
+                const error = await response.json();
+                toast.error(error.error || t("admin.addCourses.chapters.removeError"));
+            }
+        } catch (error) {
+            console.error("Error removing chapter:", error);
+            toast.error(t("admin.addCourses.chapters.removeError"));
+        } finally {
+            setProcessingChapters(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(chapterId);
+                return newSet;
+            });
         }
     };
 
@@ -351,7 +460,7 @@ const AddCoursesPage = () => {
                             )}
                         </DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4">
+                    <div className="space-y-4 max-h-[70vh] overflow-y-auto">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">{t("admin.addCourses.add.selectCourse")}</label>
                             <Select value={selectedCourse} onValueChange={setSelectedCourse}>
@@ -374,18 +483,9 @@ const AddCoursesPage = () => {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="flex justify-end space-x-2">
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setIsDialogOpen(false);
-                                    setSelectedCourse("");
-                                    setSelectedUser(null);
-                                    setDialogMode("add");
-                                }}
-                            >
-                                {t("common.cancel")}
-                            </Button>
+
+                        {/* Course-level actions */}
+                        <div className="flex justify-end space-x-2 pt-2 border-t">
                             {dialogMode === "add" ? (
                                 <Button 
                                     onClick={handleAddCourse}
@@ -402,6 +502,89 @@ const AddCoursesPage = () => {
                                     {isDeletingCourse ? t("admin.addCourses.delete.deleting") : t("admin.addCourses.delete.button")}
                                 </Button>
                             )}
+                        </div>
+
+                        {/* Chapters section */}
+                        {selectedCourse && (
+                            <div className="space-y-2 pt-4 border-t">
+                                <label className="text-sm font-medium flex items-center gap-2">
+                                    <FileText className="h-4 w-4" />
+                                    {t("admin.addCourses.chapters.title")}
+                                </label>
+                                {loadingChapters ? (
+                                    <div className="text-center py-4 text-sm text-muted-foreground">
+                                        {t("common.loading")}
+                                    </div>
+                                ) : chapters.length === 0 ? (
+                                    <div className="text-center py-4 text-sm text-muted-foreground">
+                                        {t("admin.addCourses.chapters.empty")}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                        {chapters.map((chapter) => {
+                                            const hasAccess = chapterAccesses.has(chapter.id);
+                                            const isProcessing = processingChapters.has(chapter.id);
+                                            return (
+                                                <div
+                                                    key={chapter.id}
+                                                    className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/50"
+                                                >
+                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                        {hasAccess ? (
+                                                            <Unlock className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                                        ) : (
+                                                            <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                        )}
+                                                        <span className="text-sm truncate">{chapter.title}</span>
+                                                        {chapter.isFree && (
+                                                            <Badge variant="outline" className="text-xs">
+                                                                {t("course.free")}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        variant={hasAccess ? "destructive" : "default"}
+                                                        onClick={() => hasAccess ? handleRemoveChapter(chapter.id) : handleAddChapter(chapter.id)}
+                                                        disabled={isProcessing}
+                                                        className="ml-2 flex-shrink-0"
+                                                    >
+                                                        {isProcessing ? (
+                                                            t("common.loading")
+                                                        ) : hasAccess ? (
+                                                            <>
+                                                                <X className="h-3 w-3 mr-1" />
+                                                                {t("admin.addCourses.chapters.remove")}
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Plus className="h-3 w-3 mr-1" />
+                                                                {t("admin.addCourses.chapters.add")}
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="flex justify-end space-x-2 pt-2 border-t">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setIsDialogOpen(false);
+                                    setSelectedCourse("");
+                                    setSelectedUser(null);
+                                    setDialogMode("add");
+                                    setChapters([]);
+                                    setChapterAccesses(new Set());
+                                }}
+                            >
+                                {t("common.cancel")}
+                            </Button>
                         </div>
                     </div>
                 </DialogContent>

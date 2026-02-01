@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
               id: true,
               fullName: true,
               phoneNumber: true,
+              grade: true,
             },
           },
         },

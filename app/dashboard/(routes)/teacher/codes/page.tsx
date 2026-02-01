@@ -31,6 +31,7 @@ interface PurchaseCode {
   isHidden: boolean;
   usedAt: string | null;
   createdAt: string;
+  grade: string | null;
   course: {
     id: string;
     title: string;
@@ -39,6 +40,7 @@ interface PurchaseCode {
     id: string;
     fullName: string;
     phoneNumber: string;
+    grade: string | null;
   } | null;
 }
 
@@ -390,7 +392,8 @@ const TeacherCodesPage = () => {
     if (code.isHidden || code.isUsed) return false;
     const matchesSearch =
       code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      code.course.title.toLowerCase().includes(searchTerm.toLowerCase());
+      code.course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (code.user?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
     const matchesCourse = courseFilter === "all" || code.courseId === courseFilter;
     return matchesSearch && matchesCourse;
   });
@@ -401,7 +404,8 @@ const TeacherCodesPage = () => {
     if (!code.isHidden) return false;
     const matchesSearch =
       code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      code.course.title.toLowerCase().includes(searchTerm.toLowerCase());
+      code.course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (code.user?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
     const matchesCourse = courseFilter === "all" || code.courseId === courseFilter;
     return matchesSearch && matchesCourse;
   });
@@ -533,6 +537,7 @@ const TeacherCodesPage = () => {
                     <TableHead className="rtl:text-right ltr:text-left min-w-[150px]">{t("teacher.codes.table.course")}</TableHead>
                     <TableHead className="rtl:text-right ltr:text-left min-w-[100px]">{t("teacher.codes.table.status")}</TableHead>
                     <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("teacher.codes.table.user")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[100px] hidden lg:table-cell">{t("teacher.codes.table.grade")}</TableHead>
                     <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("teacher.codes.table.usedAt")}</TableHead>
                     <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("teacher.codes.table.createdAt")}</TableHead>
                     <TableHead className="rtl:text-right ltr:text-left w-12">{t("teacher.codes.table.actions")}</TableHead>
@@ -582,6 +587,13 @@ const TeacherCodesPage = () => {
                             <div className="font-medium text-sm truncate max-w-[120px]" title={code.user.fullName}>{code.user.fullName}</div>
                             <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={code.user.phoneNumber}>{code.user.phoneNumber}</div>
                           </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs">
+                        {code.isUsed && code.user?.grade ? (
+                          <span className="font-medium">{code.user.grade}</span>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
@@ -665,6 +677,7 @@ const TeacherCodesPage = () => {
                         <TableHead className="rtl:text-right ltr:text-left min-w-[150px]">{t("teacher.codes.table.course")}</TableHead>
                         <TableHead className="rtl:text-right ltr:text-left min-w-[100px]">{t("teacher.codes.table.status")}</TableHead>
                         <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("teacher.codes.table.user")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[100px] hidden lg:table-cell">{t("teacher.codes.table.grade")}</TableHead>
                         <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("teacher.codes.table.createdAt")}</TableHead>
                         <TableHead className="rtl:text-right ltr:text-left min-w-[180px]">{t("teacher.codes.table.actions")}</TableHead>
                       </TableRow>
@@ -693,6 +706,13 @@ const TeacherCodesPage = () => {
                                 <div className="font-medium text-sm truncate max-w-[120px]" title={code.user.fullName}>{code.user.fullName}</div>
                                 <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={code.user.phoneNumber}>{code.user.phoneNumber}</div>
                               </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell text-xs">
+                            {code.isUsed && code.user?.grade ? (
+                              <span className="font-medium">{code.user.grade}</span>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
