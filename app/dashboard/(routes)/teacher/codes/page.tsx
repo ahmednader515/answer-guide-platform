@@ -369,10 +369,10 @@ const TeacherCodesPage = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedCodes.size === filteredCodes.length) {
+    if (selectedCodes.size === uniqueFilteredCodes.length) {
       setSelectedCodes(new Set());
     } else {
-      setSelectedCodes(new Set(filteredCodes.map((code) => code.id)));
+      setSelectedCodes(new Set(uniqueFilteredCodes.map((code) => code.id)));
     }
   };
 
@@ -386,10 +386,18 @@ const TeacherCodesPage = () => {
     setSelectedCodes(newSelected);
   };
 
-  // Filter codes: only show non-hidden, non-used codes
-  const filteredCodes = codes.filter((code) => {
-    // Ensure code is not hidden and not used
-    if (code.isHidden || code.isUsed) return false;
+  // Filter codes: show non-hidden codes, and when searching, also include used codes from hiddenCodes
+  const allCodesForSearch = searchTerm ? [...codes, ...hiddenCodes] : codes;
+  const filteredCodes = allCodesForSearch.filter((code) => {
+    // If there's a search term, show used codes too, otherwise filter them out
+    if (!searchTerm) {
+      // When not searching, only show non-hidden, non-used codes
+      if (code.isHidden || code.isUsed) return false;
+    } else {
+      // When searching, show all codes (including used/hidden ones)
+      // But avoid duplicates - prefer codes from main array over hidden array
+    }
+    
     const matchesSearch =
       code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       code.course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -397,11 +405,21 @@ const TeacherCodesPage = () => {
     const matchesCourse = courseFilter === "all" || code.courseId === courseFilter;
     return matchesSearch && matchesCourse;
   });
+  
+  // Remove duplicates when searching (prefer codes from main array)
+  const uniqueFilteredCodes = searchTerm 
+    ? Array.from(new Map(filteredCodes.map(code => [code.id, code])).values())
+    : filteredCodes;
 
-  // Filter hidden codes: only show hidden codes
+  // Get IDs of codes shown in main table to exclude from hidden codes table
+  const mainTableCodeIds = new Set(uniqueFilteredCodes.map(code => code.id));
+
+  // Filter hidden codes: only show hidden codes that are not already in main table
   const filteredHiddenCodes = hiddenCodes.filter((code) => {
     // Ensure code is hidden
     if (!code.isHidden) return false;
+    // If searching and code is already in main table, don't show it in hidden codes table
+    if (searchTerm && mainTableCodeIds.has(code.id)) return false;
     const matchesSearch =
       code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       code.course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -410,8 +428,9 @@ const TeacherCodesPage = () => {
     return matchesSearch && matchesCourse;
   });
 
-  const usedCodes = filteredCodes.filter((code) => code.isUsed);
-  const unusedCodes = filteredCodes.filter((code) => !code.isUsed);
+  // Calculate statistics from uniqueFilteredCodes
+  const usedCodes = uniqueFilteredCodes.filter((code) => code.isUsed);
+  const unusedCodes = uniqueFilteredCodes.filter((code) => !code.isUsed);
 
   if (loading) {
     return (
@@ -491,7 +510,7 @@ const TeacherCodesPage = () => {
             <CardTitle className="text-sm font-medium">{t("teacher.codes.stats.total")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{filteredCodes.length}</div>
+            <div className="text-2xl font-bold">{uniqueFilteredCodes.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -518,7 +537,7 @@ const TeacherCodesPage = () => {
           <CardTitle>{t("teacher.codes.table.code")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {filteredCodes.length === 0 ? (
+          {uniqueFilteredCodes.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               {t("teacher.codes.empty")}
             </div>
@@ -529,7 +548,7 @@ const TeacherCodesPage = () => {
                   <TableRow>
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedCodes.size === filteredCodes.length && filteredCodes.length > 0}
+                        checked={selectedCodes.size === uniqueFilteredCodes.length && uniqueFilteredCodes.length > 0}
                         onCheckedChange={toggleSelectAll}
                       />
                     </TableHead>
@@ -544,7 +563,7 @@ const TeacherCodesPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCodes.map((code) => (
+                  {uniqueFilteredCodes.map((code) => (
                     <TableRow key={code.id}>
                       <TableCell>
                         <Checkbox
