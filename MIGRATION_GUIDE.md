@@ -1,171 +1,195 @@
-# Database Migration Guide: Aiven to Prisma Postgres
+# Complete Guide: Migrating from UploadThing to Cloudflare R2
 
-This guide will help you migrate your database from Aiven PostgreSQL to Prisma Postgres.
+## Overview
+This guide covers the complete migration from UploadThing to Cloudflare R2 with:
+- ✅ Real-time upload progress tracking
+- ✅ Server-Sent Events (SSE) for progress updates
+- ✅ CORS configuration for video playback
+- ✅ Database URL migration
+- ✅ File organization by type
 
-## Step 1: Add Environment Variables
+## Part 1: Setup and Configuration
 
-Add the following environment variables to your `.env` file (or `.env.local`):
+### 1.1 Environment Variables
+Add to your `.env` file:
 
 ```env
-# Source Database (Aiven) - Your current Aiven PostgreSQL connection string
-# You can use either DATABASE_URL or AIVEN_DATABASE_URL
-DATABASE_URL="postgresql://user:password@aiven-host:port/database?sslmode=require"
-# OR
-AIVEN_DATABASE_URL="postgresql://user:password@aiven-host:port/database?sslmode=require"
-
-# Destination Database (Prisma Postgres) - Your new Prisma Postgres connection string
-PRISMA_DATABASE_URL="postgresql://user:password@prisma-host:port/database?sslmode=require"
-PRISMA_DIRECT_DATABASE_URL="postgresql://user:password@prisma-host:port/database?sslmode=require"
+# Cloudflare R2 Configuration
+R2_ACCOUNT_ID=your_account_id
+R2_ACCESS_KEY_ID=your_access_key_id
+R2_SECRET_ACCESS_KEY=your_secret_access_key
+R2_BUCKET_NAME=your-bucket-name
+R2_PUBLIC_URL=https://your-bucket.r2.dev
+# Or use custom domain: https://cdn.yourdomain.com
 ```
 
-### Environment Variable Names:
+### 1.2 Cloudflare R2 Setup
+1. Create an R2 bucket in Cloudflare Dashboard
+2. Enable Public Access in bucket settings
+3. Create API tokens (R2:Read, R2:Write)
+4. Note your Account ID, Access Key ID, and Secret Access Key
 
-- **`DATABASE_URL`** or **`AIVEN_DATABASE_URL`** - Your current Aiven PostgreSQL connection string (source database)
-  - The script will use `AIVEN_DATABASE_URL` if set, otherwise fall back to `DATABASE_URL`
-- **`PRISMA_DATABASE_URL`** - Your new Prisma Postgres connection string (destination database)
-- **`PRISMA_DIRECT_DATABASE_URL`** - Direct connection URL for Prisma Postgres (same as PRISMA_DATABASE_URL, used for migrations)
+## Part 2: Installation
 
-### Important Notes:
+Dependencies are already installed:
+- `@aws-sdk/client-s3`
+- `@aws-sdk/lib-storage`
+- `dotenv` (already in dependencies)
 
-1. **Keep your existing `DATABASE_URL`** pointing to Aiven during migration (or set `AIVEN_DATABASE_URL`)
-2. **Add the new Prisma Postgres URLs** as `PRISMA_DATABASE_URL` and `PRISMA_DIRECT_DATABASE_URL`
-3. After migration is complete, you can update `DATABASE_URL` and `DIRECT_DATABASE_URL` to point to Prisma Postgres
+## Part 3: Setup CORS
 
-## Step 2: Install Required Dependencies
-
-Install the PostgreSQL client library needed for the migration:
+Run the CORS setup script:
 
 ```bash
-npm install pg dotenv
-npm install --save-dev @types/pg ts-node
+npm run setup-r2-cors
 ```
 
-## Step 3: Set Up Prisma Postgres Database Schema
+This configures CORS for video playback from R2.
 
-**⚠️ IMPORTANT: You MUST run migrations on the Prisma Postgres database BEFORE running the migration script!**
+## Part 4: Migration Workflow
 
-1. Create a new database in Prisma Postgres
-2. Run migrations to create the schema on the new database:
-   
-   **On Windows PowerShell:**
-   ```powershell
-   # Temporarily set DATABASE_URL to Prisma Postgres
-   $env:DATABASE_URL=$env:PRISMA_DATABASE_URL
-   $env:DIRECT_DATABASE_URL=$env:PRISMA_DIRECT_DATABASE_URL
-   
-   # Generate Prisma Client
-   npx prisma generate
-   
-   # Run migrations on the new database
-   npx prisma migrate deploy
-   ```
-   
-   **On Linux/Mac:**
-   ```bash
-   # Temporarily set DATABASE_URL to Prisma Postgres
-   export DATABASE_URL=$PRISMA_DATABASE_URL
-   export DIRECT_DATABASE_URL=$PRISMA_DIRECT_DATABASE_URL
-   
-   # Generate Prisma Client
-   npx prisma generate
-   
-   # Run migrations on the new database
-   npx prisma migrate deploy
-   ```
-   
-   **Note:** After running migrations, you can switch back to your original DATABASE_URL or keep both set. The migration script will check if tables exist and warn you if migrations haven't been run.
+### Step 1: Backup Database URLs
+Before making any changes, backup your current database URLs:
 
-## Step 4: Run the Migration Script
-
-Run the migration script using one of these methods:
-
-**Option 1: Using npm script (recommended):**
 ```bash
-npm run migrate:db
+npm run backup-db-urls
 ```
 
-**Option 2: Using ts-node directly:**
+This creates a backup in the `backups/` directory.
+
+### Step 2: Download Existing Files (if needed)
+If you haven't already downloaded files from UploadThing:
+
 ```bash
-npx ts-node scripts/migrate-db.ts
+npm run download-uploadthing
 ```
 
-The script will:
-- Connect to both databases
-- Migrate all data in the correct order (respecting foreign key dependencies)
-- Use `upsert` operations to handle duplicates safely
-- Display progress and a summary at the end
+### Step 3: Upload Files to R2
+Upload all local files to R2:
 
-## Step 5: Verify Migration
+```bash
+npm run upload-to-r2
+```
 
-After migration completes:
+This will:
+- Upload all files from the local directory to R2
+- Organize files by type (images/, videos/, documents/)
+- Create a mapping file: `uploadthing-to-r2-mapping.json`
 
-1. Check the migration summary output
-2. Verify data in your Prisma Postgres database
-3. Test your application with the new database
+**Note:** Set `UPLOADTHING_FILES_DIR` environment variable if your files are in a different location.
 
-## Step 6: Update Environment Variables
+### Step 4: Migrate Database URLs
+Update all database URLs from UploadThing to R2:
 
-Once migration is verified and tested:
+```bash
+npm run migrate-db-to-r2
+```
 
-1. Update your `.env` file:
-   ```env
-   # Update these to point to Prisma Postgres
-   DATABASE_URL=$PRISMA_DATABASE_URL
-   DIRECT_DATABASE_URL=$PRISMA_DIRECT_DATABASE_URL
-   ```
+This updates:
+- User images
+- Course images
+- Chapter videos
+- Attachments
+- Documents
 
-2. You can remove `AIVEN_DATABASE_URL` and `PRISMA_DATABASE_URL` after confirming everything works
+## Part 5: Using the New Upload System
 
-## Migration Order
+### File Upload Component
+The `FileUpload` component has been updated to use R2 with:
+- Real-time progress tracking
+- Drag & drop support
+- SSE-based progress updates
 
-The script migrates data in this order to respect foreign key dependencies:
+It automatically uses the correct folder based on endpoint:
+- `courseImage` → `images/`
+- `courseAttachment` → `documents/`
+- `chapterVideo` → `videos/`
 
-1. Users
-2. Courses
-3. Attachments
-4. Chapters
-5. Chapter Attachments
-6. Quizzes
-7. Questions
-8. Purchase Codes
-9. Purchases
-10. User Progress
-11. Balance Transactions
-12. Quiz Results
-13. Quiz Answers
+### API Endpoint
+New upload endpoint: `/api/r2/upload`
+
+Features:
+- Server-Sent Events (SSE) for progress
+- Multipart uploads for large files (>5MB)
+- Automatic Content-Type detection
+- Authentication required
+
+## Part 6: Video Playback
+
+The video player component has been updated with:
+- CORS support (`crossOrigin="anonymous"`)
+- Multiple source formats (mp4, webm, ogg)
+- Preload metadata for better performance
+
+## Part 7: Next.js Configuration
+
+The `next.config.js` has been updated to include R2 image domains:
+- `**.r2.dev`
+- `**.r2.cloudflarestorage.com`
 
 ## Troubleshooting
 
-### Connection Errors
-- Verify both connection strings are correct
-- Check network access to both databases
-- Ensure SSL mode is correctly configured
+### Videos not playing
+- Check CORS configuration: `npm run setup-r2-cors`
+- Verify R2 bucket has public access enabled
+- Check browser console for CORS errors
 
-### Foreign Key Errors
-- The script handles this by migrating in the correct order
-- If errors occur, check that all parent records exist
+### Upload stuck at 10%
+- Verify R2 credentials in `.env`
+- Check R2 bucket name is correct
+- Ensure R2_ACCOUNT_ID is set correctly
 
-### Duplicate Key Errors
-- The script uses `upsert` to handle duplicates
-- If errors persist, check unique constraints
+### Progress not updating
+- Verify SSE stream is being parsed correctly
+- Check browser network tab for SSE events
+- Ensure `/api/r2/upload` endpoint is accessible
 
-### Missing Data
-- Check the migration summary for counts
-- Compare record counts between source and destination
-- Re-run the script if needed (it's idempotent)
+### Database migration fails
+- Ensure mapping file exists: `uploadthing-to-r2-mapping.json`
+- Run `npm run upload-to-r2` first
+- Check backup file exists before migration
 
-## Rollback Plan
+## Important Notes
 
-If you need to rollback:
-1. Keep your Aiven database intact (don't delete it)
-2. Simply switch `DATABASE_URL` back to Aiven connection string
-3. Your application will continue working with Aiven
+1. **R2 multipart uploads** require minimum 5MB part size (handled automatically)
+2. **CORS must be configured** for video playback
+3. **Public access must be enabled** on R2 bucket
+4. **Always backup database** before migration
+5. **Test thoroughly** before deploying to production
+
+## File Structure
+
+```
+lib/r2/
+  ├── config.ts          # R2 client configuration
+  └── upload.ts          # Upload utilities
+
+app/api/r2/
+  └── upload/
+      └── route.ts       # Upload API with SSE
+
+scripts/
+  ├── setup-r2-cors.ts              # CORS setup
+  ├── backup-db-urls.ts             # Database backup
+  ├── upload-to-r2.ts               # Upload files to R2
+  └── migrate-db-urls-to-r2.ts      # Migrate database URLs
+```
+
+## Next Steps
+
+1. ✅ Configure R2 credentials in `.env`
+2. ✅ Run `npm run setup-r2-cors`
+3. ✅ Test file uploads with new component
+4. ✅ Backup database: `npm run backup-db-urls`
+5. ✅ Upload existing files: `npm run upload-to-r2`
+6. ✅ Migrate database: `npm run migrate-db-to-r2`
+7. ✅ Test video playback
+8. ✅ Deploy to production
 
 ## Support
 
 If you encounter issues:
-1. Check the error messages in the console
-2. Verify environment variables are set correctly
-3. Ensure both databases are accessible
-4. Check that the Prisma Postgres database schema matches your Prisma schema
-
+1. Check the troubleshooting section above
+2. Verify all environment variables are set
+3. Check R2 bucket settings in Cloudflare Dashboard
+4. Review browser console and server logs
