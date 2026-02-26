@@ -516,7 +516,7 @@
     "codes": {
       "title": "إدارة الأكواد",
       "createNew": "إنشاء أكواد جديدة",
-      "searchPlaceholder": "البحث بالكود أو اسم الكورس أو اسم الطالب...",
+      "searchPlaceholder": "البحث بالكود أو اسم الكورس أو اسم الطالب أو رقم الهاتف...",
       "filterByCourse": "تصفية حسب الكورس:",
       "allCourses": "جميع الكورسات",
       "stats": {
@@ -579,7 +579,8 @@
         "deleteOption": "حذف الأكواد نهائياً (لا يمكن استعادتها)",
         "hideButton": "إخفاء",
         "deleteButton": "حذف",
-        "hideSuccess": "تم إخفاء {count} كود"
+        "hideSuccess": "تم إخفاء {count} كود",
+        "confirmSingle": "هل أنت متأكد من حذف هذا الكود نهائياً؟ لا يمكن التراجع عن هذا الإجراء."
       },
       "hidden": {
         "title": "الأكواد المخفية",
@@ -1042,7 +1043,7 @@
       "title": "إدارة الأكواد",
       "createNew": "إنشاء أكواد جديدة",
       "codesList": "قائمة الأكواد",
-      "searchPlaceholder": "البحث بالكود أو اسم الكورس أو المنشئ أو اسم الطالب...",
+      "searchPlaceholder": "البحث بالكود أو اسم الكورس أو المنشئ أو اسم الطالب أو رقم الهاتف...",
       "filterByCourse": "تصفية حسب الكورس:",
       "allCourses": "جميع الكورسات",
       "statistics": {
@@ -1107,7 +1108,8 @@
         "deleteOption": "حذف الأكواد نهائياً (لا يمكن استعادتها)",
         "hideButton": "إخفاء",
         "deleteButton": "حذف",
-        "hideSuccess": "تم إخفاء {count} كود"
+        "hideSuccess": "تم إخفاء {count} كود",
+        "confirmSingle": "هل أنت متأكد من حذف هذا الكود نهائياً؟ لا يمكن التراجع عن هذا الإجراء."
       },
       "hidden": {
         "title": "الأكواد المخفية",
@@ -1153,6 +1155,22 @@
         "createSuccess": "تم إنشاء حساب الطالب بنجاح"
       }
     }
+  },
+  "videoPlayer": {
+    "play": "تشغيل",
+    "back10s": "رجوع 10 ثوانٍ",
+    "forward10s": "تقديم 10 ثوانٍ",
+    "changeQuality": "تغيير جودة الفيديو",
+    "qualityTutorialTitle": "كيفية تغيير جودة الفيديو",
+    "qualityTutorialStep1": "1. انقر على أيقونة الترس (الإعدادات) في مشغل الفيديو أدناه",
+    "qualityTutorialStep2": "2. اختر \"الجودة\" من القائمة",
+    "qualityTutorialStep3": "3. حدد جودة الفيديو المفضلة (مثل 1080p أو 720p)",
+    "qualityTutorialStep4": "4. انقر على \"العودة للفيديو\" عند الانتهاء",
+    "selectQuality": "اختر جودة الفيديو",
+    "qualityAuto": "تلقائي",
+    "quality720": "720p (HD)",
+    "quality1080": "1080p (Full HD)",
+    "backToVideo": "العودة للفيديو"
   },
   "common": {
     "loading": "جاري التحميل...",

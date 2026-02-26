@@ -410,7 +410,9 @@ const AdminCodesPage = () => {
       code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       code.course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       code.creator.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (code.user?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+      (code.user?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+      (code.user?.phoneNumber?.includes(searchTerm) ?? false) ||
+      (code.creator?.phoneNumber?.includes(searchTerm) ?? false);
     const matchesCourse = courseFilter === "all" || code.courseId === courseFilter;
     return matchesSearch && matchesCourse;
   });
@@ -433,7 +435,9 @@ const AdminCodesPage = () => {
       code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       code.course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       code.creator.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (code.user?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+      (code.user?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+      (code.user?.phoneNumber?.includes(searchTerm) ?? false) ||
+      (code.creator?.phoneNumber?.includes(searchTerm) ?? false);
     const matchesCourse = courseFilter === "all" || code.courseId === courseFilter;
     return matchesSearch && matchesCourse;
   });
@@ -562,12 +566,12 @@ const AdminCodesPage = () => {
                     </TableHead>
                     <TableHead className="rtl:text-right ltr:text-left min-w-[120px]">{t("admin.codes.table.code")}</TableHead>
                     <TableHead className="rtl:text-right ltr:text-left min-w-[150px]">{t("admin.codes.table.course")}</TableHead>
-                    <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("admin.codes.table.creator")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[120px]">{t("admin.codes.table.creator")}</TableHead>
                     <TableHead className="rtl:text-right ltr:text-left min-w-[100px]">{t("admin.codes.table.status")}</TableHead>
-                    <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("admin.codes.table.user")}</TableHead>
-                    <TableHead className="rtl:text-right ltr:text-left min-w-[100px] hidden lg:table-cell">{t("admin.codes.table.grade")}</TableHead>
-                    <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("admin.codes.table.usedAt")}</TableHead>
-                    <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("admin.codes.table.createdAt")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[120px]">{t("admin.codes.table.user")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[100px]">{t("admin.codes.table.grade")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[130px]">{t("admin.codes.table.usedAt")}</TableHead>
+                    <TableHead className="rtl:text-right ltr:text-left min-w-[130px]">{t("admin.codes.table.createdAt")}</TableHead>
                     <TableHead className="rtl:text-right ltr:text-left w-12">{t("admin.codes.table.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -604,7 +608,7 @@ const AdminCodesPage = () => {
                           {code.course.title}
                         </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">
+                      <TableCell>
                         <div>
                           <div className="font-medium text-sm truncate max-w-[120px]" title={code.creator.fullName}>{code.creator.fullName}</div>
                           <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={code.creator.phoneNumber}>{code.creator.phoneNumber}</div>
@@ -615,7 +619,7 @@ const AdminCodesPage = () => {
                           {code.isUsed ? t("admin.codes.status.used") : t("admin.codes.status.unused")}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">
+                      <TableCell>
                         {code.user ? (
                           <div>
                             <div className="font-medium text-sm truncate max-w-[120px]" title={code.user.fullName}>{code.user.fullName}</div>
@@ -625,30 +629,46 @@ const AdminCodesPage = () => {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-xs">
+                      <TableCell className="text-xs">
                         {code.isUsed && code.user?.grade ? (
                           <span className="font-medium">{code.user.grade}</span>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-xs">
+                      <TableCell className="text-xs">
                         {code.usedAt
                           ? format(new Date(code.usedAt), "yyyy-MM-dd HH:mm", { locale: ar })
                           : "-"}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-xs">
+                      <TableCell className="text-xs">
                         {format(new Date(code.createdAt), "yyyy-MM-dd HH:mm", { locale: ar })}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCopyCode(code.code)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopyCode(code.code)}
+                            className="h-8 w-8 p-0"
+                            title={t("admin.codes.errors.copySuccess")}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (window.confirm(t("admin.codes.delete.confirmSingle"))) {
+                                handlePermanentDelete([code.id]);
+                              }
+                            }}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                            title={t("admin.codes.delete.deleteButton")}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -709,11 +729,11 @@ const AdminCodesPage = () => {
                       <TableRow>
                         <TableHead className="rtl:text-right ltr:text-left min-w-[120px]">{t("admin.codes.table.code")}</TableHead>
                         <TableHead className="rtl:text-right ltr:text-left min-w-[150px]">{t("admin.codes.table.course")}</TableHead>
-                        <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("admin.codes.table.creator")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[120px]">{t("admin.codes.table.creator")}</TableHead>
                         <TableHead className="rtl:text-right ltr:text-left min-w-[100px]">{t("admin.codes.table.status")}</TableHead>
-                        <TableHead className="rtl:text-right ltr:text-left min-w-[120px] hidden md:table-cell">{t("admin.codes.table.user")}</TableHead>
-                        <TableHead className="rtl:text-right ltr:text-left min-w-[100px] hidden lg:table-cell">{t("admin.codes.table.grade")}</TableHead>
-                        <TableHead className="rtl:text-right ltr:text-left min-w-[130px] hidden lg:table-cell">{t("admin.codes.table.createdAt")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[120px]">{t("admin.codes.table.user")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[100px]">{t("admin.codes.table.grade")}</TableHead>
+                        <TableHead className="rtl:text-right ltr:text-left min-w-[130px]">{t("admin.codes.table.createdAt")}</TableHead>
                         <TableHead className="rtl:text-right ltr:text-left min-w-[180px]">{t("admin.codes.table.actions")}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -730,7 +750,7 @@ const AdminCodesPage = () => {
                               {code.course.title}
                             </div>
                           </TableCell>
-                          <TableCell className="hidden md:table-cell">
+                          <TableCell>
                             <div>
                               <div className="font-medium text-sm truncate max-w-[120px]" title={code.creator.fullName}>{code.creator.fullName}</div>
                               <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={code.creator.phoneNumber}>{code.creator.phoneNumber}</div>
@@ -741,7 +761,7 @@ const AdminCodesPage = () => {
                               {code.isUsed ? t("admin.codes.status.used") : t("admin.codes.status.unused")}
                             </Badge>
                           </TableCell>
-                          <TableCell className="hidden md:table-cell">
+                          <TableCell>
                             {code.user ? (
                               <div>
                                 <div className="font-medium text-sm truncate max-w-[120px]" title={code.user.fullName}>{code.user.fullName}</div>
@@ -751,14 +771,14 @@ const AdminCodesPage = () => {
                               <span className="text-muted-foreground">-</span>
                             )}
                           </TableCell>
-                          <TableCell className="hidden lg:table-cell text-xs">
+                          <TableCell className="text-xs">
                             {code.isUsed && code.user?.grade ? (
                               <span className="font-medium">{code.user.grade}</span>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
                           </TableCell>
-                          <TableCell className="hidden lg:table-cell text-xs">
+                          <TableCell className="text-xs">
                             {format(new Date(code.createdAt), "yyyy-MM-dd HH:mm", { locale: ar })}
                           </TableCell>
                           <TableCell>
