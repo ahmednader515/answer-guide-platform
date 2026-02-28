@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart, Compass, Layout, List, Wallet, Shield, Users, Eye, TrendingUp, BookOpen, FileText, Award, PlusSquare, Key, Ticket } from "lucide-react";
+import { BarChart, Compass, Layout, List, Wallet, Shield, Users, Eye, TrendingUp, BookOpen, FileText, Award, PlusSquare, Key, Ticket, Radio } from "lucide-react";
 import { SidebarItem } from "./sidebar-item";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/lib/contexts/language-context";
@@ -37,6 +37,11 @@ export const SidebarRoutes = ({ closeOnClick = false }: { closeOnClick?: boolean
             icon: FileText,
             label: t("sidebar.teacher.quizzes"),
             href: "/dashboard/teacher/quizzes",
+        },
+        {
+            icon: Radio,
+            label: t("sidebar.teacher.livestreams"),
+            href: "/dashboard/teacher/livestreams",
         },
         {
             icon: Award,
@@ -95,6 +100,11 @@ export const SidebarRoutes = ({ closeOnClick = false }: { closeOnClick?: boolean
             icon: FileText,
             label: t("sidebar.admin.quizzes"),
             href: "/dashboard/admin/quizzes",
+        },
+        {
+            icon: Radio,
+            label: t("sidebar.admin.livestreams"),
+            href: "/dashboard/admin/livestreams",
         },
         {
             icon: Shield,

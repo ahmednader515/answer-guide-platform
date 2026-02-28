@@ -29,6 +29,7 @@ model User {
   createdPurchaseCodes PurchaseCode[]       @relation("CodeCreator")
   usedPurchaseCodes    PurchaseCode[]       @relation("CodeUser")
   chapterAccesses      ChapterAccess[]
+  comments             Comment[]
 }
 
 model Course {
@@ -48,6 +49,7 @@ model Course {
   purchases     Purchase[]
   quizzes       Quiz[]
   purchaseCodes PurchaseCode[]
+  livestreams   Livestream[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -75,16 +77,18 @@ model Chapter {
   youtubeVideoId String? // Store YouTube video ID
   documentUrl    String? @db.Text // Store document URL (legacy - for backward compatibility)
   documentName   String? // Store original document filename (legacy - for backward compatibility)
-  position       Int
-  isPublished    Boolean @default(false)
-  isFree         Boolean @default(false)
+  position         Int
+  isPublished      Boolean @default(false)
+  isFree           Boolean @default(false)
+  commentsEnabled  Boolean @default(true)
 
   courseId String
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   userProgress    UserProgress[]
-  attachments     ChapterAttachment[] // New relation for multiple documents
+  attachments     ChapterAttachment[]
   chapterAccesses ChapterAccess[]
+  comments        Comment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -260,4 +264,43 @@ model ChapterAccess {
   @@unique([userId, chapterId])
   @@index([chapterId])
   @@index([userId])
+}
+
+model Livestream {
+  id          String   @id @default(uuid())
+  title       String
+  description String?  @db.Text
+  meetingLink String   @db.Text
+  scheduledAt DateTime
+  expiresAt   DateTime
+  position    Int
+  isPublished Boolean  @default(false)
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId])
+}
+
+model Comment {
+  id        String  @id @default(uuid())
+  content   String  @db.Text
+  chapterId String
+  userId    String
+  parentId  String?
+
+  chapter Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentReplies")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([chapterId])
+  @@index([userId])
+  @@index([parentId])
 }

@@ -173,3 +173,37 @@ body,
   pointer-events: none;
   user-select: none;
 }
+
+/* Ensure our custom controls sit above Plyr's own controls bar */
+[data-video-controls] {
+  z-index: 2147483647 !important;
+}
+
+/* Restore custom video control button styles inside Plyr fullscreen container */
+[data-video-controls] button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  width: 2rem !important;
+  height: 2rem !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0.375rem !important;
+  color: white !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+  transition: background-color 0.15s ease !important;
+}
+[data-video-controls] button:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+[data-video-controls] button:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+}
+[data-video-controls] button svg {
+  width: 1rem !important;
+  height: 1rem !important;
+  flex-shrink: 0 !important;
+}

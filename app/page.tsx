@@ -274,8 +274,8 @@ export default function HomePage() {
               {t("homepage.successStartsHere")}
             </p>
             <Button size="lg" asChild className="bg-brand hover:bg-brand/90 text-white">
-              <Link href="/sign-up">
-                {t("homepage.startNow")} <ArrowRight className="mr-2 h-4 w-4" />
+              <Link href={session?.user ? "/dashboard" : "/sign-in"}>
+                {t("dashboard.exploreCourses")} <ArrowRight className="mr-2 h-4 w-4" />
               </Link>
             </Button>
           </motion.div>

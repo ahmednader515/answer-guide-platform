@@ -90,6 +90,17 @@ export async function GET(
             }
         });
 
+        // Get published livestreams
+        const livestreams = await db.livestream.findMany({
+            where: {
+                courseId: resolvedParams.courseId,
+                isPublished: true
+            },
+            orderBy: {
+                position: "asc"
+            }
+        });
+
         // Combine and sort by position, adding access information
         // Logic: 
         // 1. Free chapters are always accessible
@@ -141,6 +152,10 @@ export async function GET(
             ...quizzes.map(quiz => ({
                 ...quiz,
                 type: 'quiz' as const
+            })),
+            ...livestreams.map(livestream => ({
+                ...livestream,
+                type: 'livestream' as const
             }))
         ].sort((a, b) => a.position - b.position);
 

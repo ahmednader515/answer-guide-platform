@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Chapter, Course, Quiz } from "@prisma/client";
+import { Chapter, Course, Livestream, Quiz } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/contexts/language-context";
 
 interface CourseContentFormProps {
-    initialData: Course & { chapters: Chapter[]; quizzes: Quiz[] };
+    initialData: Course & { chapters: Chapter[]; quizzes: Quiz[]; livestreams: Livestream[] };
     courseId: string;
     userRole?: string | null;
 }
@@ -45,15 +45,18 @@ export const CourseContentForm = ({
         }
     }, [courseId, title, router, t]);
 
-    const onDelete = useCallback(async (id: string, type: "chapter" | "quiz") => {
+    const onDelete = useCallback(async (id: string, type: "chapter" | "quiz" | "livestream") => {
         try {
             setIsUpdating(true);
             if (type === "chapter") {
                 await axios.delete(`/api/courses/${courseId}/chapters/${id}`);
                 toast.success(t("teacher.courseEdit.content.toasts.chapterDeleted"));
-            } else {
+            } else if (type === "quiz") {
                 await axios.delete(`/api/teacher/quizzes/${id}`);
                 toast.success(t("teacher.courseEdit.content.toasts.quizDeleted"));
+            } else {
+                await axios.delete(`/api/courses/${courseId}/livestreams/${id}`);
+                toast.success(t("teacher.courseEdit.content.toasts.livestreamDeleted"));
             }
             router.refresh();
         } catch {
@@ -63,7 +66,7 @@ export const CourseContentForm = ({
         }
     }, [courseId, router, t]);
 
-    const onReorder = useCallback(async (updateData: { id: string; position: number; type: "chapter" | "quiz" }[]) => {
+    const onReorder = useCallback(async (updateData: { id: string; position: number; type: "chapter" | "quiz" | "livestream" }[]) => {
         try {
             setIsUpdating(true);
             await axios.put(`/api/courses/${courseId}/reorder`, {
@@ -78,12 +81,14 @@ export const CourseContentForm = ({
         }
     }, [courseId, router, t]);
 
-    const onEdit = useCallback((id: string, type: "chapter" | "quiz") => {
+    const onEdit = useCallback((id: string, type: "chapter" | "quiz" | "livestream") => {
         const basePath = userRole === "ADMIN" ? "/dashboard/admin" : "/dashboard/teacher";
         if (type === "chapter") {
             router.push(`${basePath}/courses/${courseId}/chapters/${id}`);
-        } else {
+        } else if (type === "quiz") {
             router.push(`${basePath}/quizzes/${id}/edit`);
+        } else {
+            router.push(`${basePath}/courses/${courseId}/livestreams/${id}/edit`);
         }
     }, [userRole, courseId, router]);
 
@@ -92,7 +97,12 @@ export const CourseContentForm = ({
         router.push(`${basePath}/quizzes/create?courseId=${courseId}`);
     }, [userRole, courseId, router]);
 
-    // Combine chapters and quizzes for display - memoized to prevent unnecessary re-renders
+    const onAddLivestream = useCallback(() => {
+        const basePath = userRole === "ADMIN" ? "/dashboard/admin" : "/dashboard/teacher";
+        router.push(`${basePath}/courses/${courseId}/livestreams/create`);
+    }, [userRole, courseId, router]);
+
+    // Combine chapters, quizzes, and livestreams for display - memoized to prevent unnecessary re-renders
     const courseItems = useMemo(() => [
         ...initialData.chapters.map(chapter => ({
             id: chapter.id,
@@ -108,8 +118,15 @@ export const CourseContentForm = ({
             position: quiz.position,
             isPublished: quiz.isPublished,
             type: "quiz" as const
+        })),
+        ...initialData.livestreams.map(livestream => ({
+            id: livestream.id,
+            title: livestream.title,
+            position: livestream.position,
+            isPublished: livestream.isPublished,
+            type: "livestream" as const
         }))
-    ].sort((a, b) => a.position - b.position), [initialData.chapters, initialData.quizzes]);
+    ].sort((a, b) => a.position - b.position), [initialData.chapters, initialData.quizzes, initialData.livestreams]);
 
     return (
         <div className="relative mt-6 border bg-card rounded-md p-4">
@@ -120,7 +137,11 @@ export const CourseContentForm = ({
             )}
             <div className="font-medium flex items-center justify-between">
                 {t("teacher.courseEdit.content.title")}
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                    <Button onClick={onAddLivestream} variant="ghost">
+                        <PlusCircle className="h-4 w-4 mr-2" />
+                        {t("livestream.addLivestream")}
+                    </Button>
                     <Button onClick={onAddQuiz} variant="ghost">
                         <PlusCircle className="h-4 w-4 mr-2" />
                         {t("teacher.courseEdit.content.addQuiz")}

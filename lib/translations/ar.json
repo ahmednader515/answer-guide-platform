@@ -163,6 +163,7 @@
     "teacher": {
       "courses": "الكورسات",
       "quizzes": "الاختبارات",
+      "livestreams": "البث المباشر",
       "grades": "الدرجات",
       "analytics": "الاحصائيات",
       "manageStudents": "إدارة الطلاب",
@@ -176,6 +177,7 @@
       "manageUsers": "إدارة المستخدمين",
       "courses": "الكورسات",
       "quizzes": "الاختبارات",
+      "livestreams": "البث المباشر",
       "createStudentAccount": "إنشاء حساب طالب",
       "passwords": "كلمات المرور",
       "manageBalances": "إدارة الأرصدة",
@@ -211,6 +213,8 @@
   "course": {
     "quiz": "اختبار",
     "free": "مجاني",
+    "loading": "جاري تحميل الكورس...",
+    "loadError": "حدث خطأ",
     "redeem": {
       "title": "استبدال الكود",
       "description": "أدخل الكود للحصول على الكورس مجاناً",
@@ -757,12 +761,14 @@
           "editVideo": "تعديل فيديو",
           "addVideo": "اضافة فيديو",
           "editQuiz": "تعديل اختبار",
-          "addQuiz": "اضافة اختبار"
+          "addQuiz": "اضافة اختبار",
+          "editLivestream": "تعديل البث المباشر"
         },
         "toasts": {
           "chapterCreated": "تم انشاء الفصل",
           "chapterDeleted": "تم حذف الفصل",
           "quizDeleted": "تم حذف الاختبار",
+          "livestreamDeleted": "تم حذف البث المباشر",
           "reordered": "تم ترتيب المحتوى",
           "error": "حدث خطأ"
         }
@@ -1194,5 +1200,58 @@
     "switchToEnglish": "التبديل إلى العربية",
     "arabic": "عربي",
     "showMore": "عرض المزيد"
+  },
+  "livestream": {
+    "title": "البث المباشر",
+    "label": "بث مباشر",
+    "joinNow": "انضم الآن",
+    "ended": "انتهى البث المباشر",
+    "endedDescription": "هذا البث المباشر قد انتهى.",
+    "joinPrompt": "انقر على الزر أدناه للانضمام إلى الجلسة المباشرة.",
+    "scheduledAt": "موعد البث",
+    "expiresAt": "ينتهي في",
+    "meetingLink": "رابط الاجتماع",
+    "addLivestream": "إضافة بث مباشر",
+    "createTitle": "إنشاء بث مباشر",
+    "editTitle": "تعديل البث المباشر",
+    "description": "الوصف (اختياري)",
+    "titleField": "العنوان",
+    "titlePlaceholder": "مثال: جلسة أسئلة وأجوبة مباشرة",
+    "descriptionPlaceholder": "وصف اختياري للبث المباشر...",
+    "create": "إنشاء البث المباشر",
+    "saved": "تم حفظ البث المباشر.",
+    "created": "تم إنشاء البث المباشر.",
+    "deleted": "تم حذف البث المباشر.",
+    "published": "تم نشر البث المباشر.",
+    "unpublished": "تم إلغاء نشر البث المباشر.",
+    "publish": "نشر",
+    "unpublish": "إلغاء النشر",
+    "searchPlaceholder": "ابحث بالعنوان أو الكورس...",
+    "noLivestreams": "لا توجد بثوث مباشرة.",
+    "deleteConfirm": "هل أنت متأكد من حذف هذا البث المباشر؟",
+    "selectCourse": "اختر كورساً...",
+    "selectCourseError": "يرجى اختيار كورس أولاً.",
+    "fillRequiredFields": "يرجى ملء جميع الحقول المطلوبة."
+  },
+  "comments": {
+    "title": "التعليقات",
+    "disabled": "التعليقات معطلة لهذا الفصل",
+    "placeholder": "اكتب تعليقاً...",
+    "replyPlaceholder": "اكتب رداً...",
+    "submit": "إرسال",
+    "reply": "رد",
+    "delete": "حذف",
+    "noComments": "لا توجد تعليقات بعد. كن أول من يعلق!",
+    "enableComments": "تفعيل التعليقات",
+    "commentsEnabled": "التعليقات مفعلة",
+    "commentsDisabled": "التعليقات معطلة",
+    "enabledDescription": "الطلاب يستطيعون التعليق على هذا الفصل",
+    "disabledDescription": "التعليقات معطلة لهذا الفصل",
+    "replies": "الردود",
+    "showReplies": "عرض الردود ({count})",
+    "hideReplies": "إخفاء الردود",
+    "deleteConfirm": "هل أنت متأكد من حذف هذا التعليق؟",
+    "posting": "جارٍ الإرسال...",
+    "loadError": "حدث خطأ في تحميل التعليقات"
   }
 }

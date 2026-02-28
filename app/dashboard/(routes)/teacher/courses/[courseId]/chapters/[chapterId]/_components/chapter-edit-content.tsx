@@ -2,6 +2,7 @@
 
 import { ChapterForm } from "./chapter-form";
 import { VideoForm } from "./video-form";
+import { CommentsEnabledForm } from "./comments-enabled-form";
 import Link from "next/link";
 import { ArrowLeft, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ interface Chapter {
     title: string | null;
     description: string | null;
     videoUrl: string | null;
+    commentsEnabled: boolean;
 }
 
 interface ChapterEditContentProps {
@@ -78,6 +80,11 @@ export const ChapterEditContent = ({
                             chapterId={chapterId}
                         />
                     </div>
+                    <CommentsEnabledForm
+                        initialData={{ commentsEnabled: chapter.commentsEnabled }}
+                        courseId={courseId}
+                        chapterId={chapterId}
+                    />
                 </div>
             </div>
         </div>

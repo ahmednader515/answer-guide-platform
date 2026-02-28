@@ -20,7 +20,9 @@ interface Course {
     price: number | null;
     isPublished: boolean;
     grade?: string | null;
-    chapters: Array<{ isPublished: boolean }>;
+    chapters: Array<{ id: string; title: string; position: number; isPublished: boolean; isFree: boolean }>;
+    quizzes: Array<{ id: string; title: string; position: number; isPublished: boolean }>;
+    livestreams: Array<{ id: string; title: string; position: number; isPublished: boolean }>;
 }
 
 interface CourseEditContentProps {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "plyr/dist/plyr.css";
 import { Rewind, FastForward, Settings2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,20 @@ export const PlyrVideoPlayer = ({
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [isPaused, setIsPaused] = useState(true);
   const [qualityDialogOpen, setQualityDialogOpen] = useState(false);
+  const [fullscreenContainer, setFullscreenContainer] = useState<Element | null>(null);
   const { t } = useLanguage();
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setFullscreenContainer(document.fullscreenElement ?? null);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   const progressStorageKey = propStorageKey ?? getStorageKey(youtubeVideoId, videoUrl);
 
@@ -56,6 +70,18 @@ export const PlyrVideoPlayer = ({
       window.location.reload();
     }
     setQualityDialogOpen(open);
+  };
+
+  const handleQualityButtonClick = async () => {
+    // Exit fullscreen first so the dialog is visible
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch {
+        // Ignore errors
+      }
+    }
+    setQualityDialogOpen(true);
   };
 
   const handleSeek = (seconds: number) => (e: React.PointerEvent) => {
@@ -294,44 +320,88 @@ export const PlyrVideoPlayer = ({
         </video>
       )}
 
-      {/* Custom control buttons overlay */}
-      <div className="absolute top-2 end-2 z-10 flex items-center gap-1 pointer-events-auto">
-        <div className="flex items-center gap-0.5 bg-black/60 backdrop-blur-sm rounded-lg px-1.5 py-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-white hover:bg-white/20"
-            onPointerDown={handleSeek(10)}
-            disabled={!isPlayerReady}
-            title={t("videoPlayer.forward10s")}
-          >
-            <FastForward className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-white hover:bg-white/20"
-            onPointerDown={handleSeek(-10)}
-            disabled={!isPlayerReady}
-            title={t("videoPlayer.back10s")}
-          >
-            <Rewind className="h-4 w-4" />
-          </Button>
-          {videoType === "YOUTUBE" && (
+      {/* Custom control buttons overlay – windowed mode (start/right side, FastForward → Rewind order) */}
+      {!fullscreenContainer && !qualityDialogOpen && (
+        <div data-video-controls className="absolute bottom-12 start-2 z-[9999] flex items-center gap-1 pointer-events-auto">
+          <div className="flex items-center gap-0.5 bg-black/60 backdrop-blur-sm rounded-lg px-1.5 py-1">
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-white hover:bg-white/20"
-              onClick={() => setQualityDialogOpen(true)}
-              title={t("videoPlayer.changeQuality")}
+              onPointerDown={handleSeek(10)}
+              disabled={!isPlayerReady}
+              title={t("videoPlayer.forward10s")}
             >
-              <Settings2 className="h-4 w-4" />
+              <FastForward className="h-4 w-4" />
             </Button>
-          )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-white hover:bg-white/20"
+              onPointerDown={handleSeek(-10)}
+              disabled={!isPlayerReady}
+              title={t("videoPlayer.back10s")}
+            >
+              <Rewind className="h-4 w-4" />
+            </Button>
+            {videoType === "YOUTUBE" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-white hover:bg-white/20"
+                onClick={handleQualityButtonClick}
+                title={t("videoPlayer.changeQuality")}
+              >
+                <Settings2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Custom control buttons overlay – fullscreen mode (end/left side, Rewind → FastForward order) */}
+      {fullscreenContainer && !qualityDialogOpen && createPortal(
+        <div data-video-controls className="absolute bottom-12 end-2 z-[9999] flex items-center gap-1 pointer-events-auto">
+          <div className="flex items-center gap-0.5 bg-black/60 backdrop-blur-sm rounded-lg px-1.5 py-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-white hover:bg-white/20"
+              onPointerDown={handleSeek(-10)}
+              disabled={!isPlayerReady}
+              title={t("videoPlayer.back10s")}
+            >
+              <Rewind className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-white hover:bg-white/20"
+              onPointerDown={handleSeek(10)}
+              disabled={!isPlayerReady}
+              title={t("videoPlayer.forward10s")}
+            >
+              <FastForward className="h-4 w-4" />
+            </Button>
+            {videoType === "YOUTUBE" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-white hover:bg-white/20"
+                onClick={handleQualityButtonClick}
+                title={t("videoPlayer.changeQuality")}
+              >
+                <Settings2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>,
+        fullscreenContainer
+      )}
 
       {/* YouTube Quality Tutorial Dialog */}
       <Dialog open={qualityDialogOpen} onOpenChange={handleQualityDialogClose}>

@@ -32,6 +32,11 @@ export default async function CourseIdPage({
                     position: "asc",
                 },
             },
+            livestreams: {
+                orderBy: {
+                    position: "asc",
+                },
+            },
         }
     });
 

@@ -13,15 +13,15 @@ interface CourseItem {
     title: string;
     position: number;
     isPublished: boolean;
-    type: "chapter" | "quiz";
+    type: "chapter" | "quiz" | "livestream";
     isFree?: boolean; // Only for chapters
 }
 
 interface CourseContentListProps {
     items: CourseItem[];
-    onReorder: (updateData: { id: string; position: number; type: "chapter" | "quiz" }[]) => void;
-    onEdit: (id: string, type: "chapter" | "quiz") => void;
-    onDelete: (id: string, type: "chapter" | "quiz") => void;
+    onReorder: (updateData: { id: string; position: number; type: "chapter" | "quiz" | "livestream" }[]) => void;
+    onEdit: (id: string, type: "chapter" | "quiz" | "livestream") => void;
+    onDelete: (id: string, type: "chapter" | "quiz" | "livestream") => void;
 }
 
 export const CourseContentList = ({
@@ -32,11 +32,14 @@ export const CourseContentList = ({
 }: CourseContentListProps) => {
     const { t } = useLanguage();
 
-    const getActionLabel = (type: "chapter" | "quiz", isPublished: boolean) => {
+    const getActionLabel = (type: "chapter" | "quiz" | "livestream", isPublished: boolean) => {
         if (type === "chapter") {
             return isPublished ? t("teacher.courseEdit.content.list.editVideo") : t("teacher.courseEdit.content.list.addVideo");
         }
-        return isPublished ? t("teacher.courseEdit.content.list.editQuiz") : t("teacher.courseEdit.content.list.addQuiz");
+        if (type === "quiz") {
+            return isPublished ? t("teacher.courseEdit.content.list.editQuiz") : t("teacher.courseEdit.content.list.addQuiz");
+        }
+        return t("teacher.courseEdit.content.list.editLivestream");
     };
     const onDragEnd = (result: DropResult) => {
         if (!result.destination) return;
@@ -87,7 +90,11 @@ export const CourseContentList = ({
                                             <div className="flex items-center gap-x-2">
                                                 <span>{item.title}</span>
                                                 <Badge variant="outline" className="text-xs">
-                                                    {item.type === "chapter" ? t("teacher.courseEdit.content.list.chapter") : t("teacher.courseEdit.content.list.quiz")}
+                                                    {item.type === "chapter"
+                                                        ? t("teacher.courseEdit.content.list.chapter")
+                                                        : item.type === "quiz"
+                                                        ? t("teacher.courseEdit.content.list.quiz")
+                                                        : t("livestream.label")}
                                                 </Badge>
                                             </div>
                                         </div>

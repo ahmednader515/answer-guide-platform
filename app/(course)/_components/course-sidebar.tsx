@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, use } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { CheckCircle, Circle, Lock } from "lucide-react";
+import { CheckCircle, Circle, Lock, Radio } from "lucide-react";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/contexts/language-context";
@@ -32,9 +32,10 @@ interface CourseContent {
   id: string;
   title: string;
   position: number;
-  type: 'chapter' | 'quiz';
+  type: 'chapter' | 'quiz' | 'livestream';
   isFree?: boolean;
   hasAccess?: boolean;
+  expiresAt?: string;
   userProgress?: {
     isCompleted: boolean;
   }[];
@@ -106,11 +107,12 @@ export const CourseSidebar = ({ course }: CourseSidebarProps) => {
     const courseId = course?.id || params.courseId;
     if (courseId) {
       setSelectedContentId(content.id);
-      // Allow navigation even to locked chapters so students can see why it's locked
       if (content.type === 'chapter') {
         router.push(`/courses/${courseId}/chapters/${content.id}`);
       } else if (content.type === 'quiz') {
         router.push(`/courses/${courseId}/quizzes/${content.id}`);
+      } else if (content.type === 'livestream') {
+        router.push(`/courses/${courseId}/livestreams/${content.id}`);
       }
       router.refresh();
     }
@@ -120,7 +122,7 @@ export const CourseSidebar = ({ course }: CourseSidebarProps) => {
     return (
       <div className="h-full border-r flex flex-col overflow-y-auto shadow-lg">
         <div className="p-8 flex flex-col border-b">
-          <h1 className="font-semibold">جاري تحميل الكورس</h1>
+          <h1 className="font-semibold">{t("course.loading")}</h1>
         </div>
         <div className="flex items-center justify-center h-full">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -133,7 +135,7 @@ export const CourseSidebar = ({ course }: CourseSidebarProps) => {
     return (
       <div className="h-full border-l flex flex-col overflow-y-auto shadow-lg w-64 md:w-80">
         <div className="p-8 flex flex-col border-b">
-          <h1 className="font-semibold">حدث خطأ</h1>
+          <h1 className="font-semibold">{t("course.loadError")}</h1>
         </div>
         <div className="flex items-center justify-center h-full text-red-500">
           {error}
@@ -150,9 +152,14 @@ export const CourseSidebar = ({ course }: CourseSidebarProps) => {
       <div className="flex flex-col w-full">
         {courseContent.map((content) => {
           const isSelected = selectedContentId === content.id;
-          const isCompleted = content.type === 'chapter' 
+          const isCompleted = content.type === 'chapter'
             ? content.userProgress?.[0]?.isCompleted || false
-            : content.quizResults && content.quizResults.length > 0;
+            : content.type === 'quiz'
+            ? content.quizResults && content.quizResults.length > 0
+            : false;
+          const isExpiredLivestream = content.type === 'livestream' && content.expiresAt
+            ? new Date() > new Date(content.expiresAt)
+            : false;
           const isLocked = content.type === 'chapter' && !content.isFree && !content.hasAccess;
           
           return (
@@ -172,6 +179,8 @@ export const CourseSidebar = ({ course }: CourseSidebarProps) => {
             >
               {isLocked ? (
                 <Lock className="h-4 w-4 text-slate-400" />
+              ) : content.type === 'livestream' ? (
+                <Radio className={cn("h-4 w-4", isExpiredLivestream ? "text-slate-400" : "text-primary")} />
               ) : isCompleted ? (
                 <CheckCircle className="h-4 w-4 text-emerald-600" />
               ) : (
@@ -184,6 +193,11 @@ export const CourseSidebar = ({ course }: CourseSidebarProps) => {
                 {content.title}
                 {content.type === 'quiz' && (
                   <span className="ml-2 text-xs text-green-600">({t("course.quiz")})</span>
+                )}
+                {content.type === 'livestream' && (
+                  <span className={cn("ml-2 text-xs", isExpiredLivestream ? "text-slate-400" : "text-primary")}>
+                    ({t("livestream.label")})
+                  </span>
                 )}
               </span>
               {content.type === 'chapter' && content.isFree && (

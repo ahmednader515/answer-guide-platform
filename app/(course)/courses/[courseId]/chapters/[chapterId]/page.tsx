@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import axios, { AxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, CheckCircle2, Circle, Lock, FileText, Download } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { PlyrVideoPlayer } from "@/components/plyr-video-player";
+import { CommentSection } from "@/components/comment-section";
 
 interface Chapter {
   id: string;
@@ -23,6 +25,7 @@ interface Chapter {
   previousChapterId?: string;
   nextContentType?: 'chapter' | 'quiz' | null;
   previousContentType?: 'chapter' | 'quiz' | null;
+  commentsEnabled: boolean;
   attachments?: {
     id: string;
     name: string;
@@ -38,6 +41,7 @@ interface Chapter {
 const ChapterPage = () => {
   const router = useRouter();
   const routeParams = useParams() as { courseId: string; chapterId: string };
+  const { data: session } = useSession();
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [loading, setLoading] = useState(true);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -429,6 +433,17 @@ const ChapterPage = () => {
               </div>
             )}
           </div>
+
+          {/* Comments Section */}
+          {session?.user && (
+            <CommentSection
+              chapterId={routeParams.chapterId}
+              courseId={routeParams.courseId}
+              commentsEnabled={chapter.commentsEnabled}
+              currentUserId={session.user.id as string}
+              currentUserRole={(session.user as { role?: string }).role ?? "USER"}
+            />
+          )}
 
           {/* Navigation Buttons */}
           <div className="flex items-center justify-between mt-8">
