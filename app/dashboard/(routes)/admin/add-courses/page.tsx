@@ -54,6 +54,7 @@ const AddCoursesPage = () => {
     const [isDeletingCourse, setIsDeletingCourse] = useState(false);
     const [chapters, setChapters] = useState<Chapter[]>([]);
     const [chapterAccesses, setChapterAccesses] = useState<Set<string>>(new Set());
+    const [hasCourseAccess, setHasCourseAccess] = useState(false);
     const [loadingChapters, setLoadingChapters] = useState(false);
     const [processingChapters, setProcessingChapters] = useState<Set<string>>(new Set());
 
@@ -103,6 +104,7 @@ const AddCoursesPage = () => {
             if (!selectedCourse) {
                 setChapters([]);
                 setChapterAccesses(new Set());
+                setHasCourseAccess(false);
                 return;
             }
             setLoadingChapters(true);
@@ -119,7 +121,8 @@ const AddCoursesPage = () => {
                 
                 if (accessesRes && accessesRes.ok) {
                     const accessesData = await accessesRes.json();
-                    setChapterAccesses(new Set(accessesData.map((a: { chapterId: string }) => a.chapterId)));
+                    setChapterAccesses(new Set((accessesData.accesses ?? accessesData).map((a: { chapterId: string }) => a.chapterId)));
+                    setHasCourseAccess(accessesData.hasCourseAccess ?? false);
                 }
             } catch (e) {
                 console.error("Error fetching chapters", e);
@@ -281,22 +284,32 @@ const AddCoursesPage = () => {
 
     const handleRemoveChapter = async (chapterId: string) => {
         if (!selectedUser) return;
-        
+
         setProcessingChapters(prev => new Set(prev).add(chapterId));
         try {
             const response = await fetch(`/api/admin/users/${selectedUser.id}/add-chapter`, {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chapterId })
+                body: JSON.stringify({ chapterId, courseId: selectedCourse })
             });
-            
+
             if (response.ok) {
                 toast.success(t("admin.addCourses.chapters.removeSuccess"));
-                setChapterAccesses(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(chapterId);
-                    return newSet;
-                });
+                if (hasCourseAccess && chapterAccesses.size === 0) {
+                    // Converted from full-course-access to chapter-level — refresh to get new records
+                    const accessesRes = await fetch(`/api/admin/users/${selectedUser.id}/chapter-accesses?courseId=${selectedCourse}`);
+                    if (accessesRes.ok) {
+                        const accessesData = await accessesRes.json();
+                        setChapterAccesses(new Set((accessesData.accesses ?? accessesData).map((a: { chapterId: string }) => a.chapterId)));
+                        setHasCourseAccess(accessesData.hasCourseAccess ?? false);
+                    }
+                } else {
+                    setChapterAccesses(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(chapterId);
+                        return newSet;
+                    });
+                }
             } else {
                 const error = await response.json();
                 toast.error(error.error || t("admin.addCourses.chapters.removeError"));
@@ -447,6 +460,9 @@ const AddCoursesPage = () => {
                         setSelectedCourse("");
                         setSelectedUser(null);
                         setDialogMode("add");
+                        setChapters([]);
+                        setChapterAccesses(new Set());
+                        setHasCourseAccess(false);
                     }
                 }}
             >
@@ -515,59 +531,88 @@ const AddCoursesPage = () => {
                                     <div className="text-center py-4 text-sm text-muted-foreground">
                                         {t("common.loading")}
                                     </div>
-                                ) : chapters.length === 0 ? (
-                                    <div className="text-center py-4 text-sm text-muted-foreground">
-                                        {t("admin.addCourses.chapters.empty")}
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                                        {chapters.map((chapter) => {
-                                            const hasAccess = chapterAccesses.has(chapter.id);
-                                            const isProcessing = processingChapters.has(chapter.id);
-                                            return (
-                                                <div
-                                                    key={chapter.id}
-                                                    className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/50"
-                                                >
-                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                        {hasAccess ? (
-                                                            <Unlock className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                ) : (() => {
+                                    // In delete mode: show chapters the student has access to.
+                                    // If they have full course-level access (purchase, no chapter records),
+                                    // all published chapters are accessible.
+                                    const visibleChapters = dialogMode === "delete"
+                                        ? (hasCourseAccess && chapterAccesses.size === 0
+                                            ? chapters
+                                            : chapters.filter(ch => chapterAccesses.has(ch.id)))
+                                        : chapters;
+                                    return visibleChapters.length === 0 ? (
+                                        <div className="text-center py-4 text-sm text-muted-foreground">
+                                            {dialogMode === "delete"
+                                                ? t("admin.addCourses.chapters.noAccess")
+                                                : t("admin.addCourses.chapters.empty")}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                            {visibleChapters.map((chapter) => {
+                                                const hasAccess = chapterAccesses.has(chapter.id);
+                                                const isProcessing = processingChapters.has(chapter.id);
+                                                return (
+                                                    <div
+                                                        key={chapter.id}
+                                                        className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/50"
+                                                    >
+                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                            {hasAccess ? (
+                                                                <Unlock className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                                            ) : (
+                                                                <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                            )}
+                                                            <span className="text-sm truncate">{chapter.title}</span>
+                                                            {chapter.isFree && (
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {t("course.free")}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        {dialogMode === "delete" ? (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="destructive"
+                                                                onClick={() => handleRemoveChapter(chapter.id)}
+                                                                disabled={isProcessing}
+                                                                className="ml-2 flex-shrink-0"
+                                                            >
+                                                                {isProcessing ? t("common.loading") : (
+                                                                    <>
+                                                                        <X className="h-3 w-3 mr-1" />
+                                                                        {t("admin.addCourses.chapters.remove")}
+                                                                    </>
+                                                                )}
+                                                            </Button>
                                                         ) : (
-                                                            <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                                        )}
-                                                        <span className="text-sm truncate">{chapter.title}</span>
-                                                        {chapter.isFree && (
-                                                            <Badge variant="outline" className="text-xs">
-                                                                {t("course.free")}
-                                                            </Badge>
+                                                            <Button
+                                                                size="sm"
+                                                                variant={hasAccess ? "destructive" : "default"}
+                                                                onClick={() => hasAccess ? handleRemoveChapter(chapter.id) : handleAddChapter(chapter.id)}
+                                                                disabled={isProcessing}
+                                                                className="ml-2 flex-shrink-0"
+                                                            >
+                                                                {isProcessing ? (
+                                                                    t("common.loading")
+                                                                ) : hasAccess ? (
+                                                                    <>
+                                                                        <X className="h-3 w-3 mr-1" />
+                                                                        {t("admin.addCourses.chapters.remove")}
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Plus className="h-3 w-3 mr-1" />
+                                                                        {t("admin.addCourses.chapters.add")}
+                                                                    </>
+                                                                )}
+                                                            </Button>
                                                         )}
                                                     </div>
-                                                    <Button
-                                                        size="sm"
-                                                        variant={hasAccess ? "destructive" : "default"}
-                                                        onClick={() => hasAccess ? handleRemoveChapter(chapter.id) : handleAddChapter(chapter.id)}
-                                                        disabled={isProcessing}
-                                                        className="ml-2 flex-shrink-0"
-                                                    >
-                                                        {isProcessing ? (
-                                                            t("common.loading")
-                                                        ) : hasAccess ? (
-                                                            <>
-                                                                <X className="h-3 w-3 mr-1" />
-                                                                {t("admin.addCourses.chapters.remove")}
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Plus className="h-3 w-3 mr-1" />
-                                                                {t("admin.addCourses.chapters.add")}
-                                                            </>
-                                                        )}
-                                                    </Button>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
 
@@ -581,6 +626,7 @@ const AddCoursesPage = () => {
                                     setDialogMode("add");
                                     setChapters([]);
                                     setChapterAccesses(new Set());
+                                    setHasCourseAccess(false);
                                 }}
                             >
                                 {t("common.cancel")}

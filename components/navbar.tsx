@@ -8,10 +8,12 @@ import { ScrollProgress } from "@/components/scroll-progress";
 import { LogOut } from "lucide-react";
 import { useLanguage } from "@/lib/contexts/language-context";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { useSiteSettings } from "@/lib/contexts/site-settings-context";
 
 export const Navbar = () => {
   const { data: session } = useSession();
   const { t } = useLanguage();
+  const { logoUrl } = useSiteSettings();
 
   const handleLogout = () => {
     signOut({ callbackUrl: "/" });
@@ -24,7 +26,7 @@ export const Navbar = () => {
           {/* Logo */}
           <Link href="/" className="flex items-center">
             <Image
-              src="/logo.png"
+              src={logoUrl || "/logo.png"}
               alt="Logo"
               width={100}
               height={100}

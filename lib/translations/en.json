@@ -116,6 +116,8 @@
     "noCoursesPurchased": "You haven't purchased any courses yet",
     "startLearningJourney": "Start your learning journey by purchasing your first course",
     "exploreCourses": "Explore Available Courses",
+    "accessExpiresIn": "Expires in {days} days",
+    "accessExpired": "Access expired",
     "egp": "EGP"
   },
   "balance": {
@@ -171,7 +173,8 @@
       "addDeleteCourses": "Add & Delete Courses",
       "passwords": "Passwords",
       "codes": "Codes",
-      "createStudentAccount": "Create Account"
+      "createStudentAccount": "Create Account",
+      "homepage": "Homepage Settings"
     },
     "admin": {
       "manageUsers": "Manage Users",
@@ -183,7 +186,8 @@
       "manageBalances": "Manage Balances",
       "studentProgress": "Student Progress",
       "addDeleteCourses": "Add & Delete Courses",
-      "codes": "Codes"
+      "codes": "Codes",
+      "homepage": "Homepage Settings"
     }
   },
   "search": {
@@ -685,6 +689,7 @@
       "chapters": {
         "title": "Chapters",
         "empty": "No chapters available",
+        "noAccess": "This student has no chapter access for this course",
         "add": "Add Access",
         "remove": "Remove Access",
         "addSuccess": "Chapter access added successfully",
@@ -724,6 +729,11 @@
         "noPrice": "No price",
         "editGrade": "Edit Grade",
         "noGrade": "No grade specified",
+        "accessDuration": "Access Duration",
+        "editAccessDuration": "Edit Access Duration",
+        "accessDurationDays": "{days} days",
+        "accessDurationUnlimited": "Unlimited (no expiry)",
+        "accessDurationHint": "Number of days the student can access the course after purchase. Enter 0 for unlimited access.",
         "updateSuccess": "Course updated",
         "updateError": "An error occurred",
         "publishSuccess": "Course published",
@@ -993,6 +1003,7 @@
       "chapters": {
         "title": "Chapters",
         "empty": "No chapters available",
+        "noAccess": "This student has no chapter access for this course",
         "add": "Add Access",
         "remove": "Remove Access",
         "addSuccess": "Chapter access added successfully",

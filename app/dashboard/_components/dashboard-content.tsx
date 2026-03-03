@@ -2,10 +2,10 @@
 
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Play, Clock, Trophy, Wallet, TrendingUp, BookOpen as BookOpenIcon } from "lucide-react";
+import { BookOpen, Play, Clock, Trophy, Wallet, TrendingUp, BookOpen as BookOpenIcon, TimerOff, Timer } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { Course, Purchase, Chapter } from "@prisma/client";
+import { Course, Purchase } from "@prisma/client";
 import { useLanguage } from "@/lib/contexts/language-context";
 
 type CourseWithProgress = Course & {
@@ -39,6 +39,20 @@ interface DashboardContentProps {
   studentStats: StudentStats;
   coursesWithProgress: CourseWithProgress[];
 }
+
+const getAccessCountdown = (course: CourseWithProgress) => {
+  const days = course.accessDurationDays ?? 7;
+  if (days === 0) return null; // unlimited
+
+  const purchase = course.purchases[0];
+  if (!purchase) return null;
+
+  const expiresAt = new Date(
+    new Date(purchase.createdAt).getTime() + days * 24 * 60 * 60 * 1000
+  );
+  const msRemaining = expiresAt.getTime() - Date.now();
+  return Math.ceil(msRemaining / (24 * 60 * 60 * 1000));
+};
 
 export const DashboardContent = ({
   user,
@@ -204,7 +218,12 @@ export const DashboardContent = ({
       <div>
         <h2 className="text-xl font-semibold mb-6">{t("dashboard.myCourses")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {coursesWithProgress.map((course) => (
+          {coursesWithProgress.map((course) => {
+            const daysRemaining = getAccessCountdown(course);
+            const isExpired = daysRemaining !== null && daysRemaining <= 0;
+            const isExpiringSoon = daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 3;
+
+            return (
             <div
               key={course.id}
               className="group bg-card rounded-2xl overflow-hidden border shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
@@ -222,6 +241,27 @@ export const DashboardContent = ({
                     {Math.round(course.progress)}%
                   </div>
                 </div>
+                {/* Expiry badge on image */}
+                {daysRemaining !== null && (
+                  <div className={`absolute bottom-4 left-4 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-sm ${
+                    isExpired
+                      ? "bg-red-600/90 text-white"
+                      : isExpiringSoon
+                      ? "bg-orange-500/90 text-white"
+                      : "bg-black/60 text-white"
+                  }`}>
+                    {isExpired ? (
+                      <TimerOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Timer className="h-3.5 w-3.5" />
+                    )}
+                    <span>
+                      {isExpired
+                        ? t("dashboard.accessExpired")
+                        : t("dashboard.accessExpiresIn", { days: daysRemaining.toString() })}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="p-6">
                 <div className="mb-4">
@@ -244,6 +284,27 @@ export const DashboardContent = ({
                       </div>
                     )}
                   </div>
+                  {/* Expiry warning below chapters info */}
+                  {daysRemaining !== null && (
+                    <div className={`flex items-center gap-2 text-sm rounded-lg px-3 py-2 mt-2 ${
+                      isExpired
+                        ? "bg-red-50 text-red-700 border border-red-200"
+                        : isExpiringSoon
+                        ? "bg-orange-50 text-orange-700 border border-orange-200"
+                        : "bg-blue-50 text-blue-700 border border-blue-200"
+                    }`}>
+                      {isExpired ? (
+                        <TimerOff className="h-4 w-4 flex-shrink-0" />
+                      ) : (
+                        <Timer className="h-4 w-4 flex-shrink-0" />
+                      )}
+                      <span className="font-medium">
+                        {isExpired
+                          ? t("dashboard.accessExpired")
+                          : t("dashboard.accessExpiresIn", { days: daysRemaining.toString() })}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-4">
@@ -274,7 +335,8 @@ export const DashboardContent = ({
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
         {coursesWithProgress.length === 0 && (
           <div className="text-center py-16">

@@ -8,6 +8,7 @@ import { RTLProvider } from "@/components/providers/rtl-provider";
 import { ThemeProvider as BrandThemeProvider } from "@/components/theme-provider";
 import { NavigationProvider } from "@/lib/contexts/navigation-context";
 import { LanguageProvider } from "@/lib/contexts/language-context";
+import { SiteSettingsProvider } from "@/lib/contexts/site-settings-context";
 import { useEffect } from "react";
 
 // Component to handle session loading states
@@ -42,9 +43,11 @@ export const Providers = ({ children }: { children: React.ReactNode }) => {
                 disableTransitionOnChange
               >
                 <NavigationProvider>
-                  <ToastProvider />
-                  {children}
-                  <Toaster />
+                  <SiteSettingsProvider>
+                    <ToastProvider />
+                    {children}
+                    <Toaster />
+                  </SiteSettingsProvider>
                 </NavigationProvider>
               </ThemeProvider>
             </BrandThemeProvider>

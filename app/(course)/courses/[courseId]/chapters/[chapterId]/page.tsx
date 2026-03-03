@@ -149,7 +149,7 @@ const ChapterPage = () => {
         const [chapterResponse, progressResponse, accessResponse] = await Promise.all([
           axios.get(`/api/courses/${routeParams.courseId}/chapters/${routeParams.chapterId}`),
           axios.get(`/api/courses/${routeParams.courseId}/progress`),
-          axios.get(`/api/courses/${routeParams.courseId}/chapters/${routeParams.chapterId}/access`)
+          axios.get(`/api/courses/${routeParams.courseId}/chapters/${routeParams.chapterId}/access`),
         ]);
         
         console.log("🔍 ChapterPage data fetched:", {
@@ -250,31 +250,68 @@ const ChapterPage = () => {
   }
 
   if (!hasAccess && !chapter.isFree) {
-    // Determine the lock reason message
-    let lockTitle = "هذا الفصل مغلق";
-    let lockMessage = "شراء الكورس للوصول إلى جميع الفصول";
-    let showPurchaseButton = true;
-    
-    if (lockReason === "chapter_not_granted") {
-      lockTitle = "هذا الفصل غير متاح لك";
-      lockMessage = "لم يتم منحك الوصول إلى هذا الفصل. يرجى التواصل مع المعلم أو المسؤول للحصول على الوصول.";
-      showPurchaseButton = false;
-    } else if (lockReason === "course_not_purchased") {
-      lockTitle = "هذا الفصل مغلق";
-      lockMessage = "شراء الكورس للوصول إلى جميع الفصول";
-      showPurchaseButton = true;
-    }
+    const isExpired = lockReason === "course_expired";
+    const isNotGranted = lockReason === "chapter_not_granted";
 
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-md px-4">
-          <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
-          <h2 className="text-2xl font-semibold">{lockTitle}</h2>
-          <p className="text-muted-foreground">{lockMessage}</p>
-          {showPurchaseButton && (
-            <Button onClick={() => router.push(`/courses/${routeParams.courseId}/purchase`)}>
-              شراء الكورس
-            </Button>
+      <div className="h-full flex items-center justify-center p-6">
+        <div className="text-center space-y-5 max-w-md w-full">
+          {isExpired ? (
+            <>
+              {/* Expired state */}
+              <div className="flex items-center justify-center w-20 h-20 rounded-full bg-red-100 mx-auto">
+                <Lock className="h-10 w-10 text-red-500" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-red-600">انتهت صلاحية الوصول</h2>
+                <p className="text-muted-foreground">
+                  لقد انتهت مدة اشتراكك في هذا الكورس. يمكنك شراء الكورس مجددًا للاستمرار في التعلم.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <Button
+                  className="bg-brand hover:bg-brand/90 text-white w-full"
+                  onClick={() => router.push(`/courses/${routeParams.courseId}/purchase`)}
+                >
+                  تجديد الاشتراك
+                </Button>
+                <Button variant="outline" onClick={() => router.push("/dashboard")}>
+                  العودة إلى لوحة التحكم
+                </Button>
+              </div>
+            </>
+          ) : isNotGranted ? (
+            <>
+              {/* Chapter not granted */}
+              <div className="flex items-center justify-center w-20 h-20 rounded-full bg-muted mx-auto">
+                <Lock className="h-10 w-10 text-muted-foreground" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold">هذا الفصل غير متاح لك</h2>
+                <p className="text-muted-foreground">
+                  لم يتم منحك الوصول إلى هذا الفصل بعد. يرجى التواصل مع المعلم أو المسؤول.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Course not purchased */}
+              <div className="flex items-center justify-center w-20 h-20 rounded-full bg-muted mx-auto">
+                <Lock className="h-10 w-10 text-muted-foreground" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold">هذا الفصل مغلق</h2>
+                <p className="text-muted-foreground">
+                  شراء الكورس للوصول إلى جميع الفصول
+                </p>
+              </div>
+              <Button
+                className="bg-brand hover:bg-brand/90 text-white w-full"
+                onClick={() => router.push(`/courses/${routeParams.courseId}/purchase`)}
+              >
+                شراء الكورس
+              </Button>
+            </>
           )}
         </div>
       </div>

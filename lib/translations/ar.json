@@ -116,6 +116,8 @@
     "noCoursesPurchased": "لم تقم بشراء أي كورسات بعد",
     "startLearningJourney": "ابدأ رحلة التعلم بشراء أول كورس لك",
     "exploreCourses": "استكشف الكورسات المتاحة",
+    "accessExpiresIn": "ينتهي خلال {days} يوم",
+    "accessExpired": "انتهت صلاحية الوصول",
     "egp": "جنيه"
   },
   "balance": {
@@ -171,7 +173,8 @@
       "addDeleteCourses": "اضافة و حذف الكورسات",
       "passwords": "كلمات المرور",
       "codes": "الاكواد",
-      "createStudentAccount": "إنشاء حساب طالب"
+      "createStudentAccount": "إنشاء حساب طالب",
+      "homepage": "إعدادات الصفحة الرئيسية"
     },
     "admin": {
       "manageUsers": "إدارة المستخدمين",
@@ -183,7 +186,8 @@
       "manageBalances": "إدارة الأرصدة",
       "studentProgress": "تقدم الطلاب",
       "addDeleteCourses": "اضافة و حذف الكورسات",
-      "codes": "الاكواد"
+      "codes": "الاكواد",
+      "homepage": "إعدادات الصفحة الرئيسية"
     }
   },
   "search": {
@@ -688,6 +692,7 @@
       "chapters": {
         "title": "الفصول",
         "empty": "لا توجد فصول متاحة",
+        "noAccess": "هذا الطالب ليس لديه وصول لأي فصل في هذا الكورس",
         "add": "إضافة الوصول",
         "remove": "إزالة الوصول",
         "addSuccess": "تم إضافة الوصول للفصل بنجاح",
@@ -727,6 +732,11 @@
         "noPrice": "لا يوجد سعر",
         "editGrade": "تعديل الصف",
         "noGrade": "لا يوجد صف محدد",
+        "accessDuration": "مدة الوصول",
+        "editAccessDuration": "تعديل مدة الوصول",
+        "accessDurationDays": "{days} يوم",
+        "accessDurationUnlimited": "غير محدود (بدون انتهاء)",
+        "accessDurationHint": "عدد الأيام التي يمكن للطالب الوصول إلى الكورس بعد الشراء. أدخل 0 للوصول غير المحدود.",
         "updateSuccess": "تم تحديث الكورس",
         "updateError": "حدث خطأ",
         "publishSuccess": "تم نشر الكورس",
@@ -996,6 +1006,7 @@
       "chapters": {
         "title": "الفصول",
         "empty": "لا توجد فصول متاحة",
+        "noAccess": "هذا الطالب ليس لديه وصول لأي فصل في هذا الكورس",
         "add": "إضافة الوصول",
         "remove": "إزالة الوصول",
         "addSuccess": "تم إضافة الوصول للفصل بنجاح",

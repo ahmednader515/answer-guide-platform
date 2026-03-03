@@ -33,14 +33,15 @@ model User {
 }
 
 model Course {
-  id          String  @id @default(uuid())
-  userId      String
-  title       String  @db.Text
-  description String? @db.Text
-  imageUrl    String? @db.Text
-  price       Float?
-  isPublished Boolean @default(false)
-  grade       String? // "الأول الثانوي", "الثاني الثانوي", "الثالث الثانوي"
+  id                 String  @id @default(uuid())
+  userId             String
+  title              String  @db.Text
+  description        String? @db.Text
+  imageUrl           String? @db.Text
+  price              Float?
+  isPublished        Boolean @default(false)
+  grade              String? // "الأول الثانوي", "الثاني الثانوي", "الثالث الثانوي"
+  accessDurationDays Int     @default(7) // days of access after purchase; 0 means unlimited
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -303,4 +304,10 @@ model Comment {
   @@index([chapterId])
   @@index([userId])
   @@index([parentId])
+}
+
+model SiteSettings {
+  id        String   @id @default(cuid())
+  content   Json
+  updatedAt DateTime @updatedAt
 }

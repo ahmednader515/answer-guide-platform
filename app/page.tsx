@@ -13,6 +13,27 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/contexts/language-context";
 
+// ─── Site settings types ───────────────────────────────────────────────────────
+
+type BilingualText = { ar: string; en: string };
+type Testimonial = { id: string; name: string; grade: string; text: string };
+type Feature = { id: string; title: BilingualText; description: BilingualText };
+
+type SiteSettings = {
+  teacherName: BilingualText;
+  tagline: BilingualText;
+  teacherImageUrl: string;
+  logoUrl: string;
+  facebookUrl: string;
+  whatsappUrl: string;
+  testimonials: Testimonial[];
+  features: Feature[];
+  ctaTitle: BilingualText;
+  ctaSubtitle: BilingualText;
+};
+
+// ─── Course types ──────────────────────────────────────────────────────────────
+
 // Define types based on Prisma schema
 type Course = {
   id: string;
@@ -71,34 +92,39 @@ export default function HomePage() {
   const [courses, setCourses] = useState<CourseWithProgress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const { data: session } = useSession();
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchData = async () => {
       try {
         setIsLoading(true);
-        // Fetch courses from public API endpoint
-        const response = await fetch("/api/courses/public");
-        
-        if (!response.ok) {
-          console.error("Failed to fetch courses:", response.status, response.statusText);
-          return;
-        }
-        
-        const data = await response.json();
-        console.log("Fetched courses:", data); // Debug log
-        setCourses(data);
+        const [coursesRes, settingsRes] = await Promise.all([
+          fetch("/api/courses/public"),
+          fetch("/api/site-settings"),
+        ]);
 
+        if (coursesRes.ok) {
+          const data = await coursesRes.json();
+          setCourses(data);
+        } else {
+          console.error("Failed to fetch courses:", coursesRes.status, coursesRes.statusText);
+        }
+
+        if (settingsRes.ok) {
+          const settings = await settingsRes.json();
+          setSiteSettings(settings);
+        }
       } catch (error) {
-        console.error("Error fetching courses:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchCourses();
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -122,6 +148,12 @@ export default function HomePage() {
       }
     };
   }, []);
+
+  // Returns the correct language text from a bilingual field, falling back to translation
+  const bi = (field: BilingualText | undefined, fallback: string) => {
+    if (!field) return fallback;
+    return (language === "ar" ? field.ar : field.en) || fallback;
+  };
 
   const scrollToCourses = () => {
     const coursesSection = document.getElementById('courses-section');
@@ -150,12 +182,13 @@ export default function HomePage() {
           >
             <div className="relative w-64 h-64 md:w-80 md:h-80">
               <Image
-                src="/teacher-image.png"
-                alt={t("homepage.teacherName")}
+                src={siteSettings?.teacherImageUrl || "/teacher-image.png"}
+                alt={bi(siteSettings?.teacherName, t("homepage.teacherName"))}
                 fill
                 priority
                 className="object-cover border-4 border-brand/20 shadow-lg"
                 sizes="(max-width: 768px) 256px, 320px"
+                unoptimized
               />
             </div>
             
@@ -268,10 +301,10 @@ export default function HomePage() {
             className="text-center mt-0 md:mt-0 order-2 md:order-1"
           >
             <h1 className="text-4xl md:text-6xl font-bold mb-4">
-              {t("homepage.teacherName")}
+              {bi(siteSettings?.teacherName, t("homepage.teacherName"))}
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-8">
-              {t("homepage.successStartsHere")}
+              {bi(siteSettings?.tagline, t("homepage.successStartsHere"))}
             </p>
             <Button size="lg" asChild className="bg-brand hover:bg-brand/90 text-white">
               <Link href={session?.user ? "/dashboard" : "/sign-in"}>
@@ -449,25 +482,13 @@ export default function HomePage() {
             <p className="text-muted-foreground">{t("homepage.testimonialsSubtitle")}</p>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              {
-                name: "عصام اسامة",
-                grade: "الصف الأول الثانوي",
-                testimonial: "تجربة رائعة مع الأستاذ محمد الهتيمي، شرح مميز وطريقة سهلة في توصيل المعلومة"
-              },
-              {
-                name: "سيف طارق",
-                grade: "الصف الثاني الثانوي",
-                testimonial: "المنهج منظم جداً والشرح واضح، ساعدني في فهم المواد بشكل أفضل"
-              },
-              {
-                name: "عمر جمال",
-                grade: "الصف الأول الثانوي",
-                testimonial: "أفضل منصة تعليمية استخدمتها، المحتوى غني والشرح مبسط"
-              }
-            ].map((testimonial, index) => (
+            {(siteSettings?.testimonials ?? [
+              { id: "1", name: "عصام اسامة", grade: "الصف الأول الثانوي", text: "تجربة رائعة مع الأستاذ محمد الهتيمي، شرح مميز وطريقة سهلة في توصيل المعلومة" },
+              { id: "2", name: "سيف طارق", grade: "الصف الثاني الثانوي", text: "المنهج منظم جداً والشرح واضح، ساعدني في فهم المواد بشكل أفضل" },
+              { id: "3", name: "عمر جمال", grade: "الصف الأول الثانوي", text: "أفضل منصة تعليمية استخدمتها، المحتوى غني والشرح مبسط" },
+            ]).map((testimonial, index) => (
               <motion.div
-                key={index}
+                key={testimonial.id}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
@@ -489,7 +510,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <p className="text-muted-foreground">
-                  &ldquo;{testimonial.testimonial}&rdquo;
+                  &ldquo;{testimonial.text}&rdquo;
                 </p>
                 <div className="flex mt-4">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -529,47 +550,41 @@ export default function HomePage() {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="grid grid-cols-1 md:grid-cols-3 gap-8"
           >
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-center p-6 rounded-xl bg-card border shadow-sm hover:shadow-md transition-all"
-            >
-              <div className="w-12 h-12 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Star className="h-6 w-6 text-brand" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">{t("homepage.highQuality")}</h3>
-              <p className="text-muted-foreground">{t("homepage.highQualityDesc")}</p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="text-center p-6 rounded-xl bg-card border shadow-sm hover:shadow-md transition-all"
-            >
-              <div className="w-12 h-12 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="h-6 w-6 text-brand" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">{t("homepage.activeCommunity")}</h3>
-              <p className="text-muted-foreground">{t("homepage.activeCommunityDesc")}</p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="text-center p-6 rounded-xl bg-card border shadow-sm hover:shadow-md transition-all"
-            >
-              <div className="w-12 h-12 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Award className="h-6 w-6 text-brand" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">{t("homepage.certificates")}</h3>
-              <p className="text-muted-foreground">{t("homepage.certificatesDesc")}</p>
-            </motion.div>
+            {[
+              {
+                icon: Star,
+                title: bi(siteSettings?.features?.[0]?.title, t("homepage.highQuality")),
+                desc: bi(siteSettings?.features?.[0]?.description, t("homepage.highQualityDesc")),
+                delay: 0.2,
+              },
+              {
+                icon: Users,
+                title: bi(siteSettings?.features?.[1]?.title, t("homepage.activeCommunity")),
+                desc: bi(siteSettings?.features?.[1]?.description, t("homepage.activeCommunityDesc")),
+                delay: 0.3,
+              },
+              {
+                icon: Award,
+                title: bi(siteSettings?.features?.[2]?.title, t("homepage.certificates")),
+                desc: bi(siteSettings?.features?.[2]?.description, t("homepage.certificatesDesc")),
+                delay: 0.4,
+              },
+            ].map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.5, delay: feature.delay }}
+                className="text-center p-6 rounded-xl bg-card border shadow-sm hover:shadow-md transition-all"
+              >
+                <div className="w-12 h-12 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <feature.icon className="h-6 w-6 text-brand" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                <p className="text-muted-foreground">{feature.desc}</p>
+              </motion.div>
+            ))}
           </motion.div>
         </motion.div>
       </section>
@@ -584,9 +599,11 @@ export default function HomePage() {
             viewport={{ once: true }}
             className="text-center"
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">{t("homepage.startLearningJourney")}</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              {bi(siteSettings?.ctaTitle, t("homepage.startLearningJourney"))}
+            </h2>
             <p className="text-muted-foreground mb-8">
-              {t("homepage.joinUsToday")}
+              {bi(siteSettings?.ctaSubtitle, t("homepage.joinUsToday"))}
             </p>
             <Button size="lg" asChild className="bg-brand hover:bg-brand/90 text-white">
               <Link href="/sign-up">
@@ -601,7 +618,7 @@ export default function HomePage() {
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-4 items-end" dir="ltr">
         {/* Facebook Button */}
         <motion.a
-          href="https://www.facebook.com/mohammed.elhetimy?rdid=bUJIFBhaBf8cShjz&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2F1Ao3YCvEkQ%2F#"
+          href={siteSettings?.facebookUrl || "https://www.facebook.com/mohammed.elhetimy?rdid=bUJIFBhaBf8cShjz&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2F1Ao3YCvEkQ%2F#"}
           target="_blank"
           rel="noopener noreferrer"
           initial={{ opacity: 0, x: 50 }}
@@ -629,7 +646,7 @@ export default function HomePage() {
 
         {/* WhatsApp Button */}
         <motion.a
-          href="https://wa.me/201005224432"
+          href={siteSettings?.whatsappUrl || "https://wa.me/201005224432"}
           target="_blank"
           rel="noopener noreferrer"
           initial={{ opacity: 0, x: 50 }}

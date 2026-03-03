@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart, Compass, Layout, List, Wallet, Shield, Users, Eye, TrendingUp, BookOpen, FileText, Award, PlusSquare, Key, Ticket, Radio } from "lucide-react";
+import { BarChart, Compass, Layout, List, Wallet, Shield, Users, Eye, TrendingUp, BookOpen, FileText, Award, PlusSquare, Key, Ticket, Radio, Home } from "lucide-react";
 import { SidebarItem } from "./sidebar-item";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/lib/contexts/language-context";
@@ -83,6 +83,11 @@ export const SidebarRoutes = ({ closeOnClick = false }: { closeOnClick?: boolean
             label: t("sidebar.teacher.createStudentAccount"),
             href: "/dashboard/teacher/create-account",
         },
+        {
+            icon: Home,
+            label: t("sidebar.teacher.homepage"),
+            href: "/dashboard/teacher/homepage",
+        },
     ];
 
     const adminRoutes = [
@@ -135,6 +140,11 @@ export const SidebarRoutes = ({ closeOnClick = false }: { closeOnClick?: boolean
             icon: Ticket,
             label: t("sidebar.admin.codes"),
             href: "/dashboard/admin/codes",
+        },
+        {
+            icon: Home,
+            label: t("sidebar.admin.homepage"),
+            href: "/dashboard/admin/homepage",
         },
     ];
 

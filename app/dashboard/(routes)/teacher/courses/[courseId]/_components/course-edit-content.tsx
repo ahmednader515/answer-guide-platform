@@ -7,6 +7,7 @@ import { DescriptionForm } from "./description-form";
 import { ImageForm } from "./image-form";
 import { PriceForm } from "./price-form";
 import { GradeForm } from "./grade-form";
+import { AccessDurationForm } from "./access-duration-form";
 import { CourseContentForm } from "./course-content-form";
 import { Banner } from "@/components/banner";
 import { Actions } from "./actions";
@@ -20,6 +21,7 @@ interface Course {
     price: number | null;
     isPublished: boolean;
     grade?: string | null;
+    accessDurationDays: number;
     chapters: Array<{ id: string; title: string; position: number; isPublished: boolean; isFree: boolean }>;
     quizzes: Array<{ id: string; title: string; position: number; isPublished: boolean }>;
     livestreams: Array<{ id: string; title: string; position: number; isPublished: boolean }>;
@@ -121,6 +123,10 @@ export const CourseEditContent = ({
                             courseId={course.id}
                         />
                         <GradeForm
+                            initialData={course}
+                            courseId={course.id}
+                        />
+                        <AccessDurationForm
                             initialData={course}
                             courseId={course.id}
                         />

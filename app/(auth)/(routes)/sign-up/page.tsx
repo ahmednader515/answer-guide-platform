@@ -12,6 +12,7 @@ import axios, { AxiosError } from "axios";
 import { Check, X, Eye, EyeOff, ChevronLeft } from "lucide-react";
 import Image from "next/image";
 import { useLanguage } from "@/lib/contexts/language-context";
+import { useSiteSettings } from "@/lib/contexts/site-settings-context";
 import ReCAPTCHA from "react-google-recaptcha";
 
 const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
@@ -19,6 +20,7 @@ const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
 export default function SignUpPage() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { logoUrl } = useSiteSettings();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -132,7 +134,7 @@ export default function SignUpPage() {
             <div className="relative w-64 h-[268px] mx-auto rounded-full border-4 border-brand/20 shadow-2xl overflow-hidden">
               <div className="absolute inset-8">
                 <Image
-                  src="/logo.png"
+                  src={logoUrl || "/logo.png"}
                   alt="Teacher"
                   fill
                   className="object-contain"

@@ -17,11 +17,11 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '7o7q29b8xy.ufs.sh',
+        hostname: '*.ufs.sh',
       },
       {
         protocol: 'https',
-        hostname: 'pub-b3f6ec0ff1bb4a59908869e7195927ab.r2.dev',
+        hostname: '*.r2.dev',
       },
     ],
   },

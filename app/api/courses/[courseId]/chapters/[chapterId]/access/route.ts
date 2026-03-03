@@ -16,6 +16,8 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    const now = new Date();
+
     // Get chapter with course info
     const chapter = await db.chapter.findUnique({
       where: {
@@ -45,10 +47,26 @@ export async function GET(
       return NextResponse.json({ hasAccess: true });
     }
 
-    // Check if user has course-level access (full course purchase)
-    const hasCourseAccess = chapter.course.purchases.length > 0;
+    const accessDurationDays = chapter.course.accessDurationDays ?? 7;
 
-    // Check if user has chapter-level access
+    // Classify each purchase as active or expired
+    const hasCourseAccess = chapter.course.purchases.some((purchase) => {
+      if (accessDurationDays === 0) return true; // 0 = unlimited
+      const expiresAt = new Date(
+        purchase.createdAt.getTime() + accessDurationDays * 24 * 60 * 60 * 1000
+      );
+      return expiresAt > now;
+    });
+
+    const hasExpiredPurchase = !hasCourseAccess && chapter.course.purchases.some((purchase) => {
+      if (accessDurationDays === 0) return false;
+      const expiresAt = new Date(
+        purchase.createdAt.getTime() + accessDurationDays * 24 * 60 * 60 * 1000
+      );
+      return expiresAt <= now;
+    });
+
+    // Check if user has an explicit chapter-level access record
     const chapterAccess = await db.chapterAccess.findUnique({
       where: {
         userId_chapterId: {
@@ -60,38 +78,40 @@ export async function GET(
 
     const hasChapterAccess = !!chapterAccess;
 
-    // Check if there are any chapter access records for this course (indicates chapter-level control is being used)
-    const courseChapterAccesses = await db.chapterAccess.findMany({
-      where: {
-        userId: userId,
-        chapter: {
-          courseId: courseId,
-        },
-      },
-      select: {
-        chapterId: true,
-      },
-    });
-
-    // If student has course access AND there are chapter access records, use chapter-level control
-    if (hasCourseAccess && courseChapterAccesses.length > 0) {
-      // Only accessible if there's explicit chapter access
-      return NextResponse.json({ 
-        hasAccess: hasChapterAccess,
-        reason: hasChapterAccess ? null : "chapter_not_granted"
-      });
-    }
-
-    // If student has course access but no chapter access records exist, grant access (backward compatibility)
-    if (hasCourseAccess) {
+    // Explicit chapter access always wins (teacher-granted, independent of purchase expiry)
+    if (hasChapterAccess) {
       return NextResponse.json({ hasAccess: true });
     }
 
-    // Without course access, only accessible if there's explicit chapter access
-    return NextResponse.json({ 
-      hasAccess: hasChapterAccess,
-      reason: hasChapterAccess ? null : (hasCourseAccess ? "chapter_not_granted" : "course_not_purchased")
+    // Active course purchase
+    if (hasCourseAccess) {
+      // Check if chapter-level control is in use for this student
+      const courseChapterAccesses = await db.chapterAccess.findMany({
+        where: {
+          userId: userId,
+          chapter: { courseId: courseId },
+        },
+        select: { chapterId: true },
+      });
+
+      if (courseChapterAccesses.length > 0) {
+        // Chapter-level control: only explicitly-granted chapters are accessible
+        return NextResponse.json({
+          hasAccess: false,
+          reason: "chapter_not_granted",
+        });
+      }
+
+      // Full course access, no chapter restrictions
+      return NextResponse.json({ hasAccess: true });
+    }
+
+    // No active purchase — return appropriate reason
+    return NextResponse.json({
+      hasAccess: false,
+      reason: hasExpiredPurchase ? "course_expired" : "course_not_purchased",
     });
+
   } catch (error) {
     console.error("[CHAPTER_ACCESS]", error);
     if (error instanceof Error) {
@@ -100,4 +120,3 @@ export async function GET(
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
-

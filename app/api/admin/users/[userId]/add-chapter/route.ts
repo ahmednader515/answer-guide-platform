@@ -130,7 +130,8 @@ export async function DELETE(
             );
         }
 
-        const { chapterId } = await req.json();
+        const body = await req.json();
+        const { chapterId, courseId } = body;
 
         if (!chapterId) {
             return NextResponse.json(
@@ -153,7 +154,22 @@ export async function DELETE(
             );
         }
 
-        // Find existing chapter access
+        // Fetch chapter to resolve courseId if not provided
+        const chapter = await db.chapter.findUnique({
+            where: { id: chapterId },
+            select: { courseId: true },
+        });
+
+        if (!chapter) {
+            return NextResponse.json(
+                { error: "Chapter not found" },
+                { status: 404 }
+            );
+        }
+
+        const resolvedCourseId = courseId || chapter.courseId;
+
+        // Find existing chapter access record
         const existingAccess = await db.chapterAccess.findUnique({
             where: {
                 userId_chapterId: {
@@ -163,17 +179,47 @@ export async function DELETE(
             },
         });
 
-        if (!existingAccess) {
-            return NextResponse.json(
-                { error: "Chapter access not found for this student" },
-                { status: 404 }
-            );
-        }
+        if (existingAccess) {
+            // Simple case: chapter-level access record exists, just delete it
+            await db.chapterAccess.delete({
+                where: { id: existingAccess.id },
+            });
+        } else {
+            // No chapter-level record — check if student has full course-level access via Purchase
+            const purchase = await db.purchase.findFirst({
+                where: {
+                    userId: userId,
+                    courseId: resolvedCourseId,
+                    status: "ACTIVE",
+                }
+            });
 
-        // Delete chapter access
-        await db.chapterAccess.delete({
-            where: { id: existingAccess.id },
-        });
+            if (!purchase) {
+                return NextResponse.json(
+                    { error: "Chapter access not found for this student" },
+                    { status: 404 }
+                );
+            }
+
+            // Student has full course access — convert to chapter-level access by granting
+            // access to all OTHER published chapters, leaving this one without access.
+            const otherChapters = await db.chapter.findMany({
+                where: {
+                    courseId: resolvedCourseId,
+                    isPublished: true,
+                    id: { not: chapterId },
+                },
+                select: { id: true },
+            });
+
+            await db.chapterAccess.createMany({
+                data: otherChapters.map((ch) => ({
+                    userId: userId,
+                    chapterId: ch.id,
+                })),
+                skipDuplicates: true,
+            });
+        }
 
         return NextResponse.json({ message: "Chapter access removed successfully" });
     } catch (error) {

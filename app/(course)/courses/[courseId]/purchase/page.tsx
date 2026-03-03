@@ -91,9 +91,7 @@ export default function PurchasePage({
     try {
       const response = await fetch("/api/codes/redeem", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: code.trim() }),
       });
 
@@ -169,6 +167,7 @@ export default function PurchasePage({
     try {
       const response = await fetch(`/api/courses/${courseId}/purchase`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
 
       if (response.ok) {

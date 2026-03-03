@@ -13,10 +13,12 @@ import { Eye, EyeOff, ChevronLeft } from "lucide-react";
 import Image from "next/image";
 import { getDashboardUrlByRole } from "@/lib/utils";
 import { useLanguage } from "@/lib/contexts/language-context";
+import { useSiteSettings } from "@/lib/contexts/site-settings-context";
 
 export default function SignInPage() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { logoUrl } = useSiteSettings();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -146,7 +148,7 @@ export default function SignInPage() {
             <div className="relative w-64 h-[268px] mx-auto rounded-full border-4 border-brand/20 shadow-2xl overflow-hidden">
               <div className="absolute inset-8">
                 <Image
-                  src="/logo.png"
+                  src={logoUrl || "/logo.png"}
                   alt="Teacher"
                   fill
                   className="object-contain"

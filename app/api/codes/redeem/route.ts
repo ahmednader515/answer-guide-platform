@@ -7,6 +7,8 @@ export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
 
+    const now = new Date();
+
     if (!userId) {
       return NextResponse.json(
         { error: "unauthorized", message: "Unauthorized" },
@@ -59,10 +61,18 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingPurchase && existingPurchase.status === "ACTIVE") {
-      return NextResponse.json(
-        { error: "alreadyPurchased", message: "You have already purchased this course" },
-        { status: 400 }
-      );
+      // Allow renewal if the existing purchase has expired
+      const accessDurationDays = purchaseCode.course.accessDurationDays ?? 7;
+      const isExpired = accessDurationDays > 0 && new Date(
+        existingPurchase.createdAt.getTime() + accessDurationDays * 24 * 60 * 60 * 1000
+      ) <= now;
+
+      if (!isExpired) {
+        return NextResponse.json(
+          { error: "alreadyPurchased", message: "You have already purchased this course" },
+          { status: 400 }
+        );
+      }
     }
 
     // Use transaction to ensure atomicity
@@ -73,29 +83,40 @@ export async function POST(req: NextRequest) {
         data: {
           isUsed: true,
           usedBy: userId,
-          usedAt: new Date(),
-          isHidden: true, // Automatically move to hidden table when used
+          usedAt: now,
+          isHidden: true,
         },
       });
 
-      // Delete any existing failed purchase
-      if (existingPurchase && existingPurchase.status === "FAILED") {
-        await tx.purchase.delete({
+      let purchase;
+      if (existingPurchase) {
+        // Renew expired purchase — reset createdAt to simulated "now" so the full window starts fresh
+        purchase = await tx.purchase.update({
+          where: { id: existingPurchase.id },
+          data: {
+            createdAt: now,
+            status: "ACTIVE",
+            purchaseCodeId: purchaseCode.id,
+          },
+        });
+
+        await tx.chapterAccess.deleteMany({
           where: {
-            id: existingPurchase.id,
+            userId,
+            chapter: { courseId: purchaseCode.courseId },
+          },
+        });
+      } else {
+        // New purchase
+        purchase = await tx.purchase.create({
+          data: {
+            userId,
+            courseId: purchaseCode.courseId,
+            status: "ACTIVE",
+            purchaseCodeId: purchaseCode.id,
           },
         });
       }
-
-      // Create the purchase
-      const purchase = await tx.purchase.create({
-        data: {
-          userId,
-          courseId: purchaseCode.courseId,
-          status: "ACTIVE",
-          purchaseCodeId: purchaseCode.id,
-        },
-      });
 
       return { purchase };
     });
