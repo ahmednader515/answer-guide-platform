@@ -442,9 +442,10 @@ const AdminCodesPage = () => {
     return matchesSearch && matchesCourse;
   });
 
-  // Calculate statistics from uniqueFilteredCodes
-  const usedCodes = uniqueFilteredCodes.filter((code) => code.isUsed);
-  const unusedCodes = uniqueFilteredCodes.filter((code) => !code.isUsed);
+  // Used codes are automatically hidden when redeemed, so count them from filteredHiddenCodes
+  const usedCodes = filteredHiddenCodes.filter((code) => code.isUsed);
+  const unusedCodes = uniqueFilteredCodes; // visible table only ever shows non-used codes
+  const totalCodes = unusedCodes.length + usedCodes.length;
 
   if (loading) {
     return (
@@ -522,7 +523,7 @@ const AdminCodesPage = () => {
             <CardTitle className="text-sm font-medium">{t("admin.codes.statistics.totalCodes")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{uniqueFilteredCodes.length}</div>
+            <div className="text-2xl font-bold">{totalCodes}</div>
           </CardContent>
         </Card>
         <Card>
