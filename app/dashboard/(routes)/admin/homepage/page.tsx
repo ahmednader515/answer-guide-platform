@@ -1,4 +1,4 @@
-import { HomepageEditor } from "../teacher/homepage/_components/homepage-editor";
+import { HomepageEditor } from "@/app/dashboard/(routes)/teacher/homepage/_components/homepage-editor";
 import { LayoutDashboard } from "lucide-react";
 
 export default function AdminHomepagePage() {
