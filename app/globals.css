@@ -174,9 +174,9 @@ body,
   user-select: none;
 }
 
-/* Ensure our custom controls sit above Plyr's own controls bar */
+/* Ensure our custom controls sit above Plyr's own controls bar but below navbar (z-50) */
 [data-video-controls] {
-  z-index: 2147483647 !important;
+  z-index: 30 !important;
 }
 
 /* Restore custom video control button styles inside Plyr fullscreen container */
