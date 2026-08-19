@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Edit, Trash2, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { toast } from "sonner";
@@ -82,6 +83,9 @@ const UsersPage = () => {
     });
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+    const [selectAllMode, setSelectAllMode] = useState(false);
 
     // Fetch staff users on mount (load all at once, no pagination)
     useEffect(() => {
@@ -251,6 +255,68 @@ const UsersPage = () => {
             toast.error(t("admin.users.errors.deleteError"));
         } finally {
             setIsDeleting(false);
+        }
+    };
+
+    const toggleStudentSelection = (userId: string) => {
+        const newSelected = new Set(selectedStudents);
+        if (newSelected.has(userId)) {
+            newSelected.delete(userId);
+        } else {
+            newSelected.add(userId);
+        }
+        setSelectedStudents(newSelected);
+    };
+
+    const toggleSelectAllStudents = async () => {
+        if (selectAllMode) {
+            setSelectedStudents(new Set());
+            setSelectAllMode(false);
+        } else {
+            // Fetch all students (not paginated) when selecting all
+            try {
+                const response = await fetch(`/api/admin/users?skip=0&take=10000`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const allStudents = (data.users || []).filter((user: User) => user.role === "USER");
+                    setSelectedStudents(new Set(allStudents.map(u => u.id)));
+                    setSelectAllMode(true);
+                    toast.success(`${allStudents.length} ${t("common.selected")}`);
+                } else {
+                    toast.error(t("admin.users.loadError"));
+                }
+            } catch (error) {
+                console.error("Error fetching all students:", error);
+                toast.error(t("admin.users.loadError"));
+            }
+        }
+    };
+
+    const handleBulkDeleteStudents = async () => {
+        setIsBulkDeleting(true);
+        try {
+            const userIds = Array.from(selectedStudents);
+            const deletePromises = userIds.map(userId =>
+                fetch(`/api/admin/users/${userId}`, { method: "DELETE" })
+            );
+
+            const results = await Promise.all(deletePromises);
+            const allSuccess = results.every(r => r.ok);
+
+            if (allSuccess) {
+                toast.success(t("admin.users.errors.bulkDeleteSuccess"));
+                setSelectedStudents(new Set());
+                setSelectAllMode(false);
+                fetchUsers(true);
+                fetchStaffUsers();
+            } else {
+                toast.error(t("admin.users.errors.deleteError"));
+            }
+        } catch (error) {
+            console.error("Error bulk deleting students:", error);
+            toast.error(t("admin.users.errors.deleteError"));
+        } finally {
+            setIsBulkDeleting(false);
         }
     };
 
@@ -479,34 +545,72 @@ const UsersPage = () => {
                 <Card>
                     <CardHeader>
                         <CardTitle>{t("teacher.users.studentsTitle")}</CardTitle>
-                        <div className="flex items-center space-x-2">
-                            <Search className="h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder={t("teacher.users.searchPlaceholder")}
-                                value={studentSearchTerm}
-                                onChange={(e) => setStudentSearchTerm(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                        handleStudentSearch();
-                                    }
-                                }}
-                                className="max-w-sm"
-                            />
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleStudentSearch}
-                            >
-                                <Search className="h-4 w-4" />
-                            </Button>
-                            {studentSearchTerm && (
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <Search className="h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder={t("teacher.users.searchPlaceholder")}
+                                    value={studentSearchTerm}
+                                    onChange={(e) => setStudentSearchTerm(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            handleStudentSearch();
+                                        }
+                                    }}
+                                    className="max-w-sm"
+                                />
                                 <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
-                                    onClick={handleClearStudentSearch}
+                                    onClick={handleStudentSearch}
                                 >
-                                    <X className="h-4 w-4" />
+                                    <Search className="h-4 w-4" />
                                 </Button>
+                                {studentSearchTerm && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleClearStudentSearch}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+                            {selectedStudents.size > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">
+                                        {selectedStudents.size} {t("common.selected")}
+                                    </span>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                disabled={isBulkDeleting}
+                                            >
+                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                {t("common.deleteSelected")}
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>{t("admin.users.delete.confirm")}</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    {t("admin.users.delete.bulkDescription", { count: selectedStudents.size })}
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                                                <AlertDialogAction
+                                                    onClick={handleBulkDeleteStudents}
+                                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                >
+                                                    {t("common.delete")}
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
                             )}
                         </div>
                     </CardHeader>
@@ -514,6 +618,12 @@ const UsersPage = () => {
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead className="w-12">
+                                        <Checkbox
+                                            checked={selectAllMode}
+                                            onCheckedChange={toggleSelectAllStudents}
+                                        />
+                                    </TableHead>
                                     <TableHead className="rtl:text-right ltr:text-left">{t("admin.users.table.name")}</TableHead>
                                     <TableHead className="rtl:text-right ltr:text-left">{t("admin.users.table.phoneNumber")}</TableHead>
                                     <TableHead className="rtl:text-right ltr:text-left">{t("admin.users.table.parentPhoneNumber")}</TableHead>
@@ -527,6 +637,12 @@ const UsersPage = () => {
                             <TableBody>
                                 {studentUsers.map((user) => (
                                     <TableRow key={user.id}>
+                                        <TableCell className="w-12">
+                                            <Checkbox
+                                                checked={selectedStudents.has(user.id)}
+                                                onCheckedChange={() => toggleStudentSelection(user.id)}
+                                            />
+                                        </TableCell>
                                         <TableCell className="font-medium">
                                             {user.fullName}
                                         </TableCell>

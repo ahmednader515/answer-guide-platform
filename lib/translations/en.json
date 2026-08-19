@@ -459,7 +459,8 @@
       "delete": {
         "confirm": "Are you sure?",
         "description": "This action cannot be undone. This will permanently delete the {role} and all associated data.",
-        "studentDescription": "This action cannot be undone. This will permanently delete the student and all associated data."
+        "studentDescription": "This action cannot be undone. This will permanently delete the student and all associated data.",
+        "bulkDescription": "This action cannot be undone. This will permanently delete {count} student(s) and all associated data."
       },
       "errors": {
         "noAccess": "You do not have permission to access this page",
@@ -471,7 +472,8 @@
         "invalidData": "Invalid data",
         "deleteSuccess": "User deleted successfully",
         "deleteError": "An error occurred while deleting the user",
-        "noPermissionDelete": "You do not have permission to delete the user"
+        "noPermissionDelete": "You do not have permission to delete the user",
+        "bulkDeleteSuccess": "Students deleted successfully"
       },
       "empty": "No users registered at the moment"
     },
@@ -863,13 +865,15 @@
       },
       "delete": {
         "confirm": "Are you sure?",
-        "description": "This action cannot be undone. This will permanently delete the user and all associated data."
+        "description": "This action cannot be undone. This will permanently delete the user and all associated data.",
+        "bulkDescription": "This action cannot be undone. This will permanently delete {count} user(s) and all associated data."
       },
       "errors": {
         "updateSuccess": "User information updated successfully",
         "updateError": "An error occurred while updating information",
         "deleteSuccess": "User deleted successfully",
-        "deleteError": "An error occurred while deleting the user"
+        "deleteError": "An error occurred while deleting the user",
+        "bulkDeleteSuccess": "Users deleted successfully"
       },
       "empty": "No users registered at the moment"
     },
@@ -1194,6 +1198,7 @@
     "confirm": "Confirm",
     "save": "Save",
     "delete": "Delete",
+    "deleteSelected": "Delete Selected",
     "edit": "Edit",
     "close": "Close",
     "back": "Back",
@@ -1207,7 +1212,8 @@
     "noOptions": "No options found.",
     "switchToEnglish": "Switch to English",
     "arabic": "Arabic",
-    "showMore": "Show More"
+    "showMore": "Show More",
+    "selected": "selected"
   },
   "livestream": {
     "title": "Live Stream",
