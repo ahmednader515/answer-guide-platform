@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
         const take = parseInt(searchParams.get("take") || "25");
         const search = searchParams.get("search") || "";
         const roleFilter = searchParams.get("role"); // Optional role filter (e.g., "ADMIN,TEACHER" or "USER")
+        const gradeFilter = searchParams.get("grade");
 
         // Build where clause - Teachers can see all users (USER, TEACHER, and ADMIN roles)
         const whereClause: any = {};
@@ -65,6 +66,10 @@ export async function GET(req: NextRequest) {
             };
         }
 
+        if (gradeFilter) {
+            whereClause.grade = gradeFilter;
+        }
+
         const [users, total] = await Promise.all([
             db.user.findMany({
                 where: whereClause,
@@ -74,6 +79,7 @@ export async function GET(req: NextRequest) {
                     phoneNumber: true,
                     parentPhoneNumber: true,
                     role: true,
+                    grade: true,
                     balance: true,
                     createdAt: true,
                     updatedAt: true,
