@@ -49,12 +49,21 @@ export default async function AdminCourseIdPage({
         return redirect("/dashboard/admin/courses");
     }
 
+    const completionStatus = {
+        title: !!course.title,
+        description: !!course.description,
+        imageUrl: !!course.imageUrl,
+        // Price 0 is valid (free course) — only null/undefined means missing
+        price: course.price !== null && course.price !== undefined,
+        publishedChapters: course.chapters.some(chapter => chapter.isPublished)
+    };
+
     const requiredFields = [
-        course.title,
-        course.description,
-        course.imageUrl,
-        course.price,
-        course.chapters.some(chapter => chapter.isPublished)
+        completionStatus.title,
+        completionStatus.description,
+        completionStatus.imageUrl,
+        completionStatus.price,
+        completionStatus.publishedChapters
     ];
 
     const totalFields = requiredFields.length;
@@ -63,15 +72,6 @@ export default async function AdminCourseIdPage({
     const completionText = `(${completedFields}/${totalFields})`;
 
     const isComplete = requiredFields.every(Boolean);
-
-    // Create detailed completion status
-    const completionStatus = {
-        title: !!course.title,
-        description: !!course.description,
-        imageUrl: !!course.imageUrl,
-        price: course.price !== null && course.price !== undefined,
-        publishedChapters: course.chapters.some(chapter => chapter.isPublished)
-    };
 
     return (
         <CourseEditContent
