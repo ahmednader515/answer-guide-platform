@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import axios, { AxiosError } from "axios";
@@ -163,6 +163,15 @@ const ChapterPage = () => {
         setCourseProgress(progressResponse.data.progress);
         setHasAccess(accessResponse.data.hasAccess);
         setLockReason(accessResponse.data.reason || null);
+
+        // Remember this as the last lesson the student was on
+        if (accessResponse.data.hasAccess) {
+          axios
+            .post(`/api/courses/${routeParams.courseId}/chapters/${routeParams.chapterId}/progress`)
+            .catch(() => {
+              // Non-blocking — continue learning still works without visit tracking
+            });
+        }
       } catch (error) {
         const axiosError = error as AxiosError;
         console.error("🔍 Error fetching data:", axiosError);
@@ -200,7 +209,7 @@ const ChapterPage = () => {
     }
   };
 
-  const onEnd = async () => {
+  const onEnd = useCallback(async () => {
     try {
       if (!isCompleted) {
         await axios.put(`/api/courses/${routeParams.courseId}/chapters/${routeParams.chapterId}/progress`);
@@ -211,7 +220,7 @@ const ChapterPage = () => {
       console.error("Error marking chapter as completed:", error);
       toast.error("فشل تحديث التقدم");
     }
-  };
+  }, [isCompleted, routeParams.courseId, routeParams.chapterId, router]);
 
   const onNext = () => {
     if (chapter?.nextChapterId) {
@@ -350,11 +359,6 @@ const ChapterPage = () => {
                     storageKey={chapter.id}
                     className="w-full h-full"
                     onEnded={onEnd}
-                    onTimeUpdate={(currentTime) => {
-                      if (process.env.NODE_ENV === 'development') {
-                        console.log("🔍 Video time update:", currentTime);
-                      }
-                    }}
                   />
                 );
               })()

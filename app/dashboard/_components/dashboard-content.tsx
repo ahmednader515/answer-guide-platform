@@ -9,10 +9,11 @@ import { Course, Purchase } from "@prisma/client";
 import { useLanguage } from "@/lib/contexts/language-context";
 
 type CourseWithProgress = Course & {
-  chapters: { id: string }[];
+  chapters: { id: string; position?: number }[];
   quizzes: { id: string }[];
   purchases: Purchase[];
   progress: number;
+  continueChapterId: string | null;
 }
 
 type LastWatchedChapter = {
@@ -328,7 +329,7 @@ export const DashboardContent = ({
                     variant="default"
                     asChild
                   >
-                    <Link href={course.chapters.length > 0 ? `/courses/${course.id}/chapters/${course.chapters[0].id}` : `/courses/${course.id}`}>
+                    <Link href={course.continueChapterId ? `/courses/${course.id}/chapters/${course.continueChapterId}` : `/courses/${course.id}`}>
                       {t("dashboard.continueLearning")}
                     </Link>
                   </Button>

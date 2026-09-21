@@ -1,20 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 import { db } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
+        const token = await getToken({
+            req,
+            secret: process.env.NEXTAUTH_SECRET,
+        });
 
-        console.log("[TEACHER_USERS_GET] Session:", { userId: session?.user?.id, role: session?.user?.role });
+        console.log("[TEACHER_USERS_GET] Token:", { userId: token?.id ?? token?.sub, role: token?.role });
 
-        if (!session?.user) {
+        if (!token) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        if (session.user.role !== "TEACHER") {
-            console.log("[TEACHER_USERS_GET] Access denied:", { userId: session.user.id, role: session.user.role });
+        if (token.role !== "TEACHER") {
+            console.log("[TEACHER_USERS_GET] Access denied:", { userId: token.id ?? token.sub, role: token.role });
             return new NextResponse("Forbidden", { status: 403 });
         }
 
@@ -26,43 +30,40 @@ export async function GET(req: NextRequest) {
         const gradeFilter = searchParams.get("grade");
 
         // Build where clause - Teachers can see all users (USER, TEACHER, and ADMIN roles)
-        const whereClause: any = {};
-        
+        const whereClause: Record<string, unknown> = {};
+
         // Determine which roles to include
         let allowedRoles = ["USER", "TEACHER", "ADMIN"];
         if (roleFilter) {
-            // If role filter is provided, use only those roles
-            allowedRoles = roleFilter.split(",").map(r => r.trim());
+            allowedRoles = roleFilter.split(",").map((r) => r.trim());
         }
-        
+
         if (search.trim()) {
-            // When searching, combine role filter with search filter
             whereClause.AND = [
                 {
                     role: {
-                        in: allowedRoles
-                    }
+                        in: allowedRoles,
+                    },
                 },
                 {
                     OR: [
                         {
                             fullName: {
                                 contains: search,
-                                mode: "insensitive"
-                            }
+                                mode: "insensitive",
+                            },
                         },
                         {
                             phoneNumber: {
-                                contains: search
-                            }
-                        }
-                    ]
-                }
+                                contains: search,
+                            },
+                        },
+                    ],
+                },
             ];
         } else {
-            // No search, just filter by role
             whereClause.role = {
-                in: allowedRoles
+                in: allowedRoles,
             };
         }
 
@@ -87,30 +88,30 @@ export async function GET(req: NextRequest) {
                         select: {
                             courses: true,
                             purchases: true,
-                            userProgress: true
-                        }
-                    }
+                            userProgress: true,
+                        },
+                    },
                 },
                 orderBy: {
-                    createdAt: "desc"
+                    createdAt: "desc",
                 },
                 skip,
-                take
+                take,
             }),
-            db.user.count({ where: whereClause })
+            db.user.count({ where: whereClause }),
         ]);
 
         console.log("[TEACHER_USERS_GET] Found users:", users.length);
         console.log("[TEACHER_USERS_GET] Users by role:", {
-            USER: users.filter(u => u.role === "USER").length,
-            TEACHER: users.filter(u => u.role === "TEACHER").length,
-            ADMIN: users.filter(u => u.role === "ADMIN").length
+            USER: users.filter((u) => u.role === "USER").length,
+            TEACHER: users.filter((u) => u.role === "TEACHER").length,
+            ADMIN: users.filter((u) => u.role === "ADMIN").length,
         });
 
         return NextResponse.json({
             users,
             total,
-            hasMore: skip + take < total
+            hasMore: skip + take < total,
         });
     } catch (error) {
         console.error("[TEACHER_USERS_GET]", error);

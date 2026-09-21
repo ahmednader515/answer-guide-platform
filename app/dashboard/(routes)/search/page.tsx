@@ -6,9 +6,10 @@ import { SearchContent } from "./_components/search-content";
 import { Course, Purchase } from "@prisma/client";
 
 type CourseWithDetails = Course & {
-    chapters: { id: string }[];
+    chapters: { id: string; position?: number }[];
     purchases: Purchase[];
     progress: number;
+    continueChapterId: string | null;
 }
 
 export default async function SearchPage({
@@ -91,7 +92,11 @@ export default async function SearchPage({
                 },
                 select: {
                     id: true,
-                }
+                    position: true,
+                },
+                orderBy: {
+                    position: "asc",
+                },
             },
             purchases: {
                 where: {
@@ -118,15 +123,21 @@ export default async function SearchPage({
         where: {
             userId: session.user.id,
             chapterId: { in: allChapterIds },
-            isCompleted: true
         },
         select: {
-            chapterId: true
+            chapterId: true,
+            isCompleted: true,
+            updatedAt: true,
         }
     }) : [];
 
     // Create a set for O(1) lookup
-    const completedChaptersSet = new Set(allUserProgress.map(up => up.chapterId));
+    const completedChaptersSet = new Set(
+        allUserProgress.filter((up) => up.isCompleted).map((up) => up.chapterId)
+    );
+    const progressByChapterId = new Map(
+        allUserProgress.map((up) => [up.chapterId, up])
+    );
 
     // Calculate progress for each course using the batched data
     const coursesWithProgress = courses.map((course) => {
@@ -138,9 +149,18 @@ export default async function SearchPage({
             ? (completedChapters / totalChapters) * 100 
             : 0;
 
+        const courseProgressEntries = course.chapters
+            .map((ch) => progressByChapterId.get(ch.id))
+            .filter((up): up is NonNullable<typeof up> => Boolean(up))
+            .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+
+        const continueChapterId =
+            courseProgressEntries[0]?.chapterId ?? course.chapters[0]?.id ?? null;
+
         return {
             ...course,
-            progress
+            progress,
+            continueChapterId,
         } as CourseWithDetails;
     });
 

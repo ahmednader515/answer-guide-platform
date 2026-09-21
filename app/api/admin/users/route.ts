@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 import { db } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
+        const token = await getToken({
+            req,
+            secret: process.env.NEXTAUTH_SECRET,
+        });
 
-        if (!session?.user) {
+        if (!token) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        if (session.user.role !== "ADMIN") {
+        if (token.role !== "ADMIN") {
             return new NextResponse("Forbidden", { status: 403 });
         }
 
@@ -22,44 +26,39 @@ export async function GET(req: NextRequest) {
         const roleFilter = searchParams.get("role"); // Optional role filter (e.g., "ADMIN,TEACHER" or "USER")
         const gradeFilter = searchParams.get("grade");
 
-        // Build where clause
-        const whereClause: any = {};
-        
-        // Determine which roles to include
+        const whereClause: Record<string, unknown> = {};
+
         let allowedRoles = ["USER", "TEACHER", "ADMIN"];
         if (roleFilter) {
-            // If role filter is provided, use only those roles
-            allowedRoles = roleFilter.split(",").map(r => r.trim());
+            allowedRoles = roleFilter.split(",").map((r) => r.trim());
         }
-        
+
         if (search.trim()) {
-            // When searching, combine role filter with search filter
             whereClause.AND = [
                 {
                     role: {
-                        in: allowedRoles
-                    }
+                        in: allowedRoles,
+                    },
                 },
                 {
                     OR: [
                         {
                             fullName: {
                                 contains: search,
-                                mode: "insensitive"
-                            }
+                                mode: "insensitive",
+                            },
                         },
                         {
                             phoneNumber: {
-                                contains: search
-                            }
-                        }
-                    ]
-                }
+                                contains: search,
+                            },
+                        },
+                    ],
+                },
             ];
         } else {
-            // No search, just filter by role
             whereClause.role = {
-                in: allowedRoles
+                in: allowedRoles,
             };
         }
 
@@ -84,26 +83,26 @@ export async function GET(req: NextRequest) {
                         select: {
                             courses: true,
                             purchases: true,
-                            userProgress: true
-                        }
-                    }
+                            userProgress: true,
+                        },
+                    },
                 },
                 orderBy: {
-                    createdAt: "desc"
+                    createdAt: "desc",
                 },
                 skip,
-                take
+                take,
             }),
-            db.user.count({ where: whereClause })
+            db.user.count({ where: whereClause }),
         ]);
 
         return NextResponse.json({
             users,
             total,
-            hasMore: skip + take < total
+            hasMore: skip + take < total,
         });
     } catch (error) {
         console.error("[ADMIN_USERS_GET]", error);
         return new NextResponse("Internal Error", { status: 500 });
     }
-} 
+}

@@ -45,11 +45,18 @@ export const PlyrVideoPlayer = ({
   const html5VideoRef = useRef<HTMLVideoElement>(null);
   const youtubeContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
+  const onEndedRef = useRef(onEnded);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [isPaused, setIsPaused] = useState(true);
   const [qualityDialogOpen, setQualityDialogOpen] = useState(false);
   const [fullscreenContainer, setFullscreenContainer] = useState<Element | null>(null);
   const { t } = useLanguage();
+
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+    onTimeUpdateRef.current = onTimeUpdate;
+  }, [onEnded, onTimeUpdate]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -174,13 +181,13 @@ export const PlyrVideoPlayer = ({
         } catch {
           // Ignore
         }
-        onEnded?.();
+        onEndedRef.current?.();
       });
       let lastSaved = 0;
       const saveInterval = 1000;
       player.on("timeupdate", () => {
         const t = player.currentTime || 0;
-        onTimeUpdate?.(t);
+        onTimeUpdateRef.current?.(t);
         if (typeof window !== "undefined" && Date.now() - lastSaved > saveInterval) {
           lastSaved = Date.now();
           try {
@@ -256,7 +263,7 @@ export const PlyrVideoPlayer = ({
       }
       playerRef.current = null;
     };
-  }, [videoUrl, youtubeVideoId, videoType, onEnded, onTimeUpdate, progressStorageKey]);
+  }, [videoUrl, youtubeVideoId, videoType, progressStorageKey]);
 
   const hasVideo = (videoType === "YOUTUBE" && !!youtubeVideoId) || !!videoUrl;
 

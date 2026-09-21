@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, File } from "lucide-react";
 import { IconBadge } from "@/components/icon-badge";
@@ -19,6 +20,22 @@ export const CourseMobileSidebar = ({
     chapters,
     progressCount,
 }: CourseMobileSidebarProps) => {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // Avoid Radix Sheet ID hydration mismatches that remount the course layout / video
+    if (!mounted) {
+        return (
+            <div
+                className="md:hidden pr-4 h-10 w-10 shrink-0"
+                aria-hidden="true"
+            />
+        );
+    }
+
     return (
         <Sheet>
             <SheetTrigger className="md:hidden pr-4 hover:opacity-75 transition">
@@ -53,4 +70,4 @@ export const CourseMobileSidebar = ({
             </SheetContent>
         </Sheet>
     );
-}; 
+};

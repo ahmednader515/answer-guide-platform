@@ -94,6 +94,8 @@ const UsersPage = () => {
     const [allStaffUsers, setAllStaffUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [studentSearchTerm, setStudentSearchTerm] = useState("");
+    const [activeStudentSearch, setActiveStudentSearch] = useState("");
+    const [searchResults, setSearchResults] = useState<User[]>([]);
     const [staffSearchTerm, setStaffSearchTerm] = useState("");
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [editData, setEditData] = useState<EditUserData>({
@@ -128,9 +130,25 @@ const UsersPage = () => {
         fetchAllGradeUsers(true);
     }, []);
 
-    // Handler for student search submit
+    const getGradeLabel = (grade: string | null) => {
+        const option = GRADE_OPTIONS.find((g) => g.value === grade);
+        if (option) return t(option.labelKey);
+        return grade || "";
+    };
+
+    const formatStudentName = (user: User) => {
+        const gradeLabel = getGradeLabel(user.grade);
+        return gradeLabel ? `${user.fullName} (${gradeLabel})` : user.fullName;
+    };
+
+    // Handler for student search submit — unified list across all grades
     const handleStudentSearch = () => {
-        fetchAllGradeUsers(true);
+        const term = studentSearchTerm.trim();
+        if (!term) {
+            handleClearStudentSearch();
+            return;
+        }
+        fetchSearchResults(term);
     };
 
     // Handler for staff search submit (client-side filtering)
@@ -147,10 +165,47 @@ const UsersPage = () => {
         }
     };
 
-    // Handler to clear student search
+    // Handler to clear student search and restore grade tables
     const handleClearStudentSearch = () => {
         setStudentSearchTerm("");
+        setActiveStudentSearch("");
+        setSearchResults([]);
         fetchAllGradeUsers(true, "");
+    };
+
+    const fetchSearchResults = async (term: string) => {
+        try {
+            setLoading(true);
+            setSelectedStudents(new Set());
+            const response = await fetch(
+                `${apiBase}?skip=0&take=10000&role=USER&search=${encodeURIComponent(term)}`
+            );
+            if (response.ok) {
+                const data = await response.json();
+                const studentUsers = (data.users || []).filter((user: User) => user.role === "USER");
+                setSearchResults(studentUsers);
+                setActiveStudentSearch(term);
+            } else {
+                if (response.status === 403) {
+                    toast.error(t("teacher.users.errors.noAccess"));
+                } else {
+                    toast.error(t("teacher.users.errors.loadError"));
+                }
+            }
+        } catch (error) {
+            console.error("Error searching students:", error);
+            toast.error(t("teacher.users.errors.loadError"));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const refreshStudents = () => {
+        if (activeStudentSearch.trim()) {
+            fetchSearchResults(activeStudentSearch.trim());
+        } else {
+            fetchAllGradeUsers(true);
+        }
     };
 
     // Handler to clear staff search
@@ -303,7 +358,7 @@ const UsersPage = () => {
                 toast.success(t("teacher.users.errors.updateSuccess", { role: t(`teacher.users.roles.${roleKey}`) }));
                 setIsEditDialogOpen(false);
                 setEditingUser(null);
-                fetchAllGradeUsers(true);
+                refreshStudents();
                 fetchStaffUsers();
             } else {
                 const error = await response.text();
@@ -333,7 +388,7 @@ const UsersPage = () => {
 
             if (response.ok) {
                 toast.success(t("teacher.users.errors.deleteSuccess"));
-                fetchAllGradeUsers(true);
+                refreshStudents();
                 fetchStaffUsers();
             } else {
                 const error = await response.text();
@@ -354,14 +409,16 @@ const UsersPage = () => {
         }
     };
 
-    const toggleStudentSelection = (userId: string, grade: GradeValue) => {
+    const toggleStudentSelection = (userId: string, grade?: GradeValue) => {
         const newSelected = new Set(selectedStudents);
         if (newSelected.has(userId)) {
             newSelected.delete(userId);
-            setGradeTables((prev) => ({
-                ...prev,
-                [grade]: { ...prev[grade], selectAllMode: false },
-            }));
+            if (grade) {
+                setGradeTables((prev) => ({
+                    ...prev,
+                    [grade]: { ...prev[grade], selectAllMode: false },
+                }));
+            }
         } else {
             newSelected.add(userId);
         }
@@ -452,7 +509,7 @@ const UsersPage = () => {
                     ...prev,
                     [grade]: { ...prev[grade], selectAllMode: false },
                 }));
-                fetchAllGradeUsers(true);
+                refreshStudents();
                 fetchStaffUsers();
             } else {
                 toast.error(t("teacher.users.errors.deleteError"));
@@ -479,7 +536,7 @@ const UsersPage = () => {
             if (allSuccess) {
                 toast.success(t("teacher.users.errors.bulkDeleteSuccess"));
                 setSelectedStudents(new Set());
-                fetchAllGradeUsers(true);
+                refreshStudents();
                 fetchStaffUsers();
             } else {
                 toast.error(t("teacher.users.errors.deleteError"));
@@ -782,7 +839,253 @@ const UsersPage = () => {
                     )}
                 </div>
 
-                {GRADE_OPTIONS.map((gradeOption) => {
+                {activeStudentSearch ? (
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between gap-2">
+                                <CardTitle>
+                                    {t("teacher.users.studentsTitle")} ({searchResults.length})
+                                </CardTitle>
+                                {selectedStudents.size > 0 && (
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                disabled={isBulkDeleting}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                                <span className="ms-2">{selectedStudents.size}</span>
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>{t("teacher.users.delete.confirm")}</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    {t("teacher.users.delete.bulkDescription", { count: selectedStudents.size })}
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                                                <AlertDialogAction
+                                                    onClick={handleBulkDeleteStudents}
+                                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                >
+                                                    {t("common.delete")}
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                )}
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-12">
+                                            <Checkbox
+                                                checked={
+                                                    searchResults.length > 0 &&
+                                                    searchResults.every((user) => selectedStudents.has(user.id))
+                                                }
+                                                onCheckedChange={() => {
+                                                    const allSelected =
+                                                        searchResults.length > 0 &&
+                                                        searchResults.every((user) => selectedStudents.has(user.id));
+                                                    const next = new Set(selectedStudents);
+                                                    if (allSelected) {
+                                                        searchResults.forEach((user) => next.delete(user.id));
+                                                    } else {
+                                                        searchResults.forEach((user) => next.add(user.id));
+                                                    }
+                                                    setSelectedStudents(next);
+                                                }}
+                                                disabled={searchResults.length === 0}
+                                            />
+                                        </TableHead>
+                                        <TableHead className="rtl:text-right ltr:text-left">{t("teacher.users.table.name")}</TableHead>
+                                        <TableHead className="rtl:text-right ltr:text-left">{t("teacher.users.table.phoneNumber")}</TableHead>
+                                        <TableHead className="rtl:text-right ltr:text-left">{t("teacher.users.table.parentPhoneNumber")}</TableHead>
+                                        <TableHead className="rtl:text-right ltr:text-left">{t("teacher.users.table.role")}</TableHead>
+                                        <TableHead className="rtl:text-right ltr:text-left">{t("teacher.users.table.balance")}</TableHead>
+                                        <TableHead className="rtl:text-right ltr:text-left">{t("teacher.users.table.purchasedCourses")}</TableHead>
+                                        <TableHead className="rtl:text-right ltr:text-left">{t("teacher.users.table.registrationDate")}</TableHead>
+                                        <TableHead className="rtl:text-right ltr:text-left">{t("teacher.users.table.actions")}</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {searchResults.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                                                {t("teacher.users.empty")}
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        searchResults.map((user) => (
+                                            <TableRow key={user.id}>
+                                                <TableCell className="w-12">
+                                                    <Checkbox
+                                                        checked={selectedStudents.has(user.id)}
+                                                        onCheckedChange={() => toggleStudentSelection(user.id)}
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                    {formatStudentName(user)}
+                                                </TableCell>
+                                                <TableCell>{user.phoneNumber}</TableCell>
+                                                <TableCell>{user.parentPhoneNumber}</TableCell>
+                                                <TableCell>
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="bg-green-600 text-white hover:bg-green-700"
+                                                    >
+                                                        {t("teacher.users.roles.student")}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="secondary">
+                                                        {user.balance} {t("dashboard.egp")}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">
+                                                        {user._count.purchases}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {format(new Date(user.createdAt), "dd/MM/yyyy", { locale: ar })}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Dialog open={isEditDialogOpen && editingUser?.id === user.id} onOpenChange={(open) => {
+                                                            if (!open) {
+                                                                setIsEditDialogOpen(false);
+                                                                setEditingUser(null);
+                                                            }
+                                                        }}>
+                                                            <DialogTrigger asChild>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => handleEditUser(user)}
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                            </DialogTrigger>
+                                                            <DialogContent>
+                                                                <DialogHeader>
+                                                                    <DialogTitle>{t("teacher.users.edit.studentTitle")}</DialogTitle>
+                                                                    <DialogDescription>
+                                                                        {t("teacher.users.edit.studentDescription")}
+                                                                    </DialogDescription>
+                                                                </DialogHeader>
+                                                                <div className="grid gap-4 py-4">
+                                                                    <div className="grid grid-cols-4 items-center gap-4">
+                                                                        <Label htmlFor="fullName" className="text-right">
+                                                                            {t("auth.fullName")}
+                                                                        </Label>
+                                                                        <Input
+                                                                            id="fullName"
+                                                                            value={editData.fullName}
+                                                                            onChange={(e) => setEditData({...editData, fullName: e.target.value})}
+                                                                            className="col-span-3"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="grid grid-cols-4 items-center gap-4">
+                                                                        <Label htmlFor="phoneNumber" className="text-right">
+                                                                            {t("auth.phoneNumber")}
+                                                                        </Label>
+                                                                        <Input
+                                                                            id="phoneNumber"
+                                                                            value={editData.phoneNumber}
+                                                                            onChange={(e) => setEditData({...editData, phoneNumber: e.target.value})}
+                                                                            className="col-span-3"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="grid grid-cols-4 items-center gap-4">
+                                                                        <Label htmlFor="parentPhoneNumber" className="text-right">
+                                                                            {t("auth.parentPhoneNumber")}
+                                                                        </Label>
+                                                                        <Input
+                                                                            id="parentPhoneNumber"
+                                                                            value={editData.parentPhoneNumber}
+                                                                            onChange={(e) => setEditData({...editData, parentPhoneNumber: e.target.value})}
+                                                                            className="col-span-3"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="grid grid-cols-4 items-center gap-4">
+                                                                        <Label htmlFor="role" className="text-right">
+                                                                            {t("teacher.users.table.role")}
+                                                                        </Label>
+                                                                        <Select
+                                                                            value={editData.role}
+                                                                            onValueChange={(value) => setEditData({...editData, role: value})}
+                                                                        >
+                                                                            <SelectTrigger className="col-span-3">
+                                                                                <SelectValue placeholder={t("teacher.users.edit.selectRole")} />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="USER">{t("teacher.users.roles.student")}</SelectItem>
+                                                                                <SelectItem value="TEACHER">{t("teacher.users.roles.teacher")}</SelectItem>
+                                                                                <SelectItem value="ADMIN">{t("teacher.users.roles.admin")}</SelectItem>
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    </div>
+                                                                </div>
+                                                                <DialogFooter>
+                                                                    <Button variant="outline" onClick={() => {
+                                                                        setIsEditDialogOpen(false);
+                                                                        setEditingUser(null);
+                                                                    }}>
+                                                                        {t("common.cancel")}
+                                                                    </Button>
+                                                                    <Button onClick={handleSaveUser}>
+                                                                        {t("teacher.users.edit.saveChanges")}
+                                                                    </Button>
+                                                                </DialogFooter>
+                                                            </DialogContent>
+                                                        </Dialog>
+
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button
+                                                                    variant="destructive"
+                                                                    size="sm"
+                                                                    disabled={isDeleting}
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>{t("teacher.users.delete.confirm")}</AlertDialogTitle>
+                                                                    <AlertDialogDescription>
+                                                                        {t("teacher.users.delete.studentDescription")}
+                                                                    </AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                                                                    <AlertDialogAction
+                                                                        onClick={() => handleDeleteUser(user.id)}
+                                                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                                    >
+                                                                        {t("common.delete")}
+                                                                    </AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                ) : (
+                GRADE_OPTIONS.map((gradeOption) => {
                     const gradeState = gradeTables[gradeOption.value];
                     const gradeStudents = gradeState.users;
                     const selectedInGrade = getSelectedCountInGrade(gradeOption.value);
@@ -1029,7 +1332,7 @@ const UsersPage = () => {
                                         )}
                                     </TableBody>
                                 </Table>
-                                {gradeState.hasMore && !studentSearchTerm && (
+                                {gradeState.hasMore && (
                                     <div className="flex justify-center mt-4">
                                         <Button
                                             variant="outline"
@@ -1043,10 +1346,11 @@ const UsersPage = () => {
                             </CardContent>
                         </Card>
                     );
-                })}
+                })
+                )}
             </div>
 
-            {staffUsers.length === 0 && !hasAnyStudents && !loading && (
+            {staffUsers.length === 0 && !hasAnyStudents && !activeStudentSearch && !loading && (
                 <Card>
                     <CardContent className="p-6">
                         <div className="text-center text-muted-foreground">

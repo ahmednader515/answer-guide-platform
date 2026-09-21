@@ -7,10 +7,11 @@ import { DashboardContent } from "./_components/dashboard-content";
 import { Course, Purchase, Chapter } from "@prisma/client";
 
 type CourseWithProgress = Course & {
-  chapters: { id: string }[];
+  chapters: { id: string; position?: number }[];
   quizzes: { id: string }[];
   purchases: Purchase[];
   progress: number;
+  continueChapterId: string | null;
 }
 
 type LastWatchedChapter = {
@@ -55,11 +56,21 @@ const CoursesPage = async () => {
     redirect("/api/auth/signout?callbackUrl=/sign-in");
   }
 
-  // Get last watched chapter
+  // Get last watched chapter (most recently touched progress for this student)
   const lastWatchedChapter = await db.userProgress.findFirst({
     where: {
       userId: session.user.id,
-      isCompleted: false // Get the last incomplete chapter
+      chapter: {
+        isPublished: true,
+        course: {
+          purchases: {
+            some: {
+              userId: session.user.id,
+              status: "ACTIVE",
+            },
+          },
+        },
+      },
     },
     include: {
       chapter: {
@@ -179,7 +190,11 @@ const CoursesPage = async () => {
         },
         select: {
           id: true,
-        }
+          position: true,
+        },
+        orderBy: {
+          position: "asc",
+        },
       },
       quizzes: {
         where: {
@@ -209,10 +224,11 @@ const CoursesPage = async () => {
       where: {
         userId: session.user.id,
         chapterId: { in: allChapterIds },
-        isCompleted: true
       },
       select: {
-        chapterId: true
+        chapterId: true,
+        isCompleted: true,
+        updatedAt: true,
       }
     }) : Promise.resolve([]),
     allQuizIds.length > 0 ? db.quizResult.findMany({
@@ -227,8 +243,13 @@ const CoursesPage = async () => {
   ]);
 
   // Create maps for O(1) lookup
-  const completedChaptersSet = new Set(allUserProgress.map(up => up.chapterId));
+  const completedChaptersSet = new Set(
+    allUserProgress.filter((up) => up.isCompleted).map((up) => up.chapterId)
+  );
   const completedQuizzesSet = new Set(allQuizResults.map(qr => qr.quizId));
+  const progressByChapterId = new Map(
+    allUserProgress.map((up) => [up.chapterId, up])
+  );
 
   // Calculate progress for each course using the batched data
   const coursesWithProgress = courses.map((course) => {
@@ -248,9 +269,19 @@ const CoursesPage = async () => {
       ? (completedContent / totalContent) * 100 
       : 0;
 
+    // Resume the last lesson the student was on for this course; otherwise the first chapter
+    const courseProgressEntries = course.chapters
+      .map((ch) => progressByChapterId.get(ch.id))
+      .filter((up): up is NonNullable<typeof up> => Boolean(up))
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+
+    const continueChapterId =
+      courseProgressEntries[0]?.chapterId ?? course.chapters[0]?.id ?? null;
+
     return {
       ...course,
-      progress
+      progress,
+      continueChapterId,
     } as CourseWithProgress;
   });
 

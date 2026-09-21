@@ -9,9 +9,10 @@ import { Course, Purchase } from "@prisma/client";
 import { useLanguage } from "@/lib/contexts/language-context";
 
 type CourseWithDetails = Course & {
-    chapters: { id: string }[];
+    chapters: { id: string; position?: number }[];
     purchases: Purchase[];
     progress: number;
+    continueChapterId?: string | null;
 }
 
 interface SearchContentProps {
@@ -186,7 +187,15 @@ export const SearchContent = ({ title, coursesWithProgress }: SearchContentProps
                                     variant="default"
                                     asChild
                                 >
-                                    <Link href={course.chapters.length > 0 ? `/courses/${course.id}/chapters/${course.chapters[0].id}` : `/courses/${course.id}`}>
+                                    <Link
+                                        href={
+                                            course.continueChapterId
+                                                ? `/courses/${course.id}/chapters/${course.continueChapterId}`
+                                                : course.chapters.length > 0
+                                                    ? `/courses/${course.id}/chapters/${course.chapters[0].id}`
+                                                    : `/courses/${course.id}`
+                                        }
+                                    >
                                         {course.purchases.length > 0 ? t("search.continueLearning") : t("search.viewCourse")}
                                     </Link>
                                 </Button>
