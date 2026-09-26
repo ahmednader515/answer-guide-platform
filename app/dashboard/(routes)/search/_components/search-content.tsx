@@ -2,7 +2,7 @@
 
 import { SearchInput } from "./search-input";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Clock, Users, Timer, TimerOff } from "lucide-react";
+import { BookOpen, Clock, Users, Timer, TimerOff, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Course, Purchase } from "@prisma/client";
@@ -18,6 +18,7 @@ type CourseWithDetails = Course & {
 interface SearchContentProps {
     title: string;
     coursesWithProgress: CourseWithDetails[];
+    missingGrade?: boolean;
 }
 
 const getAccessCountdown = (course: CourseWithDetails) => {
@@ -31,7 +32,7 @@ const getAccessCountdown = (course: CourseWithDetails) => {
     return Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
 };
 
-export const SearchContent = ({ title, coursesWithProgress }: SearchContentProps) => {
+export const SearchContent = ({ title, coursesWithProgress, missingGrade = false }: SearchContentProps) => {
     const { t } = useLanguage();
 
     return (
@@ -46,6 +47,16 @@ export const SearchContent = ({ title, coursesWithProgress }: SearchContentProps
                     }
                 </p>
             </div>
+
+            {missingGrade && (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                    <AlertTriangle className="h-5 w-5 shrink-0" />
+                    <p className="flex-1 text-sm">{t("search.noGradeWarning")}</p>
+                    <Button asChild size="sm" className="bg-brand hover:bg-brand/90 text-white shrink-0">
+                        <Link href="/dashboard/profile">{t("search.setGrade")}</Link>
+                    </Button>
+                </div>
+            )}
 
             {/* Search Input Section */}
             <div className="bg-card rounded-2xl p-6 border shadow-sm">

@@ -28,6 +28,7 @@ export default async function SearchPage({
         where: { id: session.user.id },
         select: { grade: true },
     });
+    const missingGrade = session.user.role === "USER" && !user?.grade?.trim();
 
     const resolvedParams = await searchParams;
     const title = typeof resolvedParams.title === 'string' ? resolvedParams.title : '';
@@ -168,6 +169,7 @@ export default async function SearchPage({
         <SearchContent 
             title={title}
             coursesWithProgress={coursesWithProgress}
+            missingGrade={missingGrade}
         />
     );
 }

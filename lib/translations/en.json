@@ -162,6 +162,7 @@
     "dashboard": "Dashboard",
     "courses": "Courses",
     "balance": "Balance",
+    "profile": "My Account",
     "teacher": {
       "courses": "Courses",
       "quizzes": "Quizzes",
@@ -208,6 +209,8 @@
     "continueLearning": "Continue Learning",
     "viewCourse": "View Course",
     "purchaseCourse": "Purchase Course",
+    "noGradeWarning": "You haven't selected a grade. Choose your grade from My Account so courses matching your grade are shown.",
+    "setGrade": "Choose grade",
     "noCoursesFound": "No courses found",
     "noCoursesAvailable": "No courses available",
     "tryDifferentSearch": "Try searching with different words or browse all courses",
@@ -1268,5 +1271,17 @@
     "deleteConfirm": "Are you sure you want to delete this comment?",
     "posting": "Posting...",
     "loadError": "Failed to load comments"
+  },
+  "profile": {
+    "title": "My Account",
+    "subtitle": "Update your name and grade. Phone numbers cannot be changed.",
+    "fullName": "Full Name",
+    "grade": "Grade",
+    "phoneNumber": "Phone Number",
+    "parentPhoneNumber": "Parent Phone Number",
+    "save": "Save Changes",
+    "updateSuccess": "Your information was updated successfully",
+    "updateError": "An error occurred while updating your information",
+    "loadError": "An error occurred while loading your information"
   }
 }

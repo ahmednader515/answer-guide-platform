@@ -109,7 +109,12 @@ export const authOptions: AuthOptions = {
 
       return session;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      if (trigger === "update" && session?.name) {
+        token.name = session.name;
+        return token;
+      }
+
       if (user) {
         // When user first signs in, set the token with user data
         return {
