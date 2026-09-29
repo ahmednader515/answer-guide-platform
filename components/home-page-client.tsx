@@ -53,23 +53,16 @@ function pickLang(obj: { ar?: string; en?: string } | undefined, language: strin
 
 interface HomePageClientProps {
   siteSettings: SiteSettingsContent;
+  initialCourses: CourseWithProgress[];
 }
 
-export function HomePageClient({ siteSettings }: HomePageClientProps) {
-  const [courses, setCourses] = useState<CourseWithProgress[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function HomePageClient({ siteSettings, initialCourses }: HomePageClientProps) {
+  const [courses] = useState<CourseWithProgress[]>(initialCourses);
+  const [isLoading] = useState(false);
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
   const { data: session } = useSession();
   const router = useRouter();
   const { t, language } = useLanguage();
-
-  useEffect(() => {
-    fetch("/api/courses/public")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setCourses)
-      .catch(() => setCourses([]))
-      .finally(() => setIsLoading(false));
-  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
